@@ -1,0 +1,10 @@
+name: lucky-felt
+region: nyc
+static_sites:
+  - name: lucky-felt
+    source_dir: /
+    build_command: npm run build
+    output_dir: dist
+    environment_slug: node-js
+    routes:
+      - path: /

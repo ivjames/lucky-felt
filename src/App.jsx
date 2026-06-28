@@ -1,16 +1,11 @@
-import { useState } from "react";
-import { loadUser, saveUser } from "./storage";
+import { useState, useEffect } from "react";
+import * as api from "./api";
 
-const STARTING_BALANCE = 1000;
+// Display-only constants. The SERVER enforces these (cooldown, payouts, RNG);
+// the client keeps copies purely for rendering. Nothing here decides money.
 const ATM_AMOUNT = 500;
 const ATM_COOLDOWN_MS = 5 * 60 * 1000;
 
-const SUITS = ["♠","♥","♦","♣"];
-const RANKS = ["2","3","4","5","6","7","8","9","10","J","Q","K","A"];
-const RANK_VAL = {"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9,"10":10,"J":11,"Q":12,"K":13,"A":14};
-
-function makeDeck(){const d=[];for(const s of SUITS)for(const r of RANKS)d.push({r,s});return d;}
-function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function cardColor(s){return (s==="♥"||s==="♦")?"#ff6b6b":"#f0e6c8";}
 
 function CardEl({card,hidden=false,small=false}){
@@ -18,32 +13,6 @@ function CardEl({card,hidden=false,small=false}){
   if(hidden)return (<div role="img" aria-label="Hidden card" style={{width:w,height:h,borderRadius:7,border:"2px solid #e8c84a",background:"linear-gradient(135deg,#2a5a38,#142e1c)",display:"inline-flex",alignItems:"center",justifyContent:"center",margin:"0 3px",boxShadow:"0 3px 8px rgba(0,0,0,0.5)"}}><span style={{color:"#e8c84a",fontSize:small?18:24}}>🂠</span></div>);
   return (<div role="img" aria-label={`${card.r} of ${card.s}`} style={{width:w,height:h,borderRadius:7,border:"2px solid #e8c84a",background:"#22203a",display:"inline-flex",flexDirection:"column",alignItems:"flex-start",justifyContent:"flex-start",padding:"3px 4px",margin:"0 3px",boxShadow:"0 3px 8px rgba(0,0,0,0.5)"}}><span style={{color:cardColor(card.s),fontWeight:700,fontSize:small?11:14,lineHeight:1}}>{card.r}</span><span style={{color:cardColor(card.s),fontSize:small?13:18,lineHeight:1,margin:"auto"}}>{card.s}</span><span style={{color:cardColor(card.s),fontWeight:700,fontSize:small?11:14,lineHeight:1,alignSelf:"flex-end",transform:"rotate(180deg)"}}>{card.r}</span></div>);
 }
-
-function getRank(card){return RANK_VAL[card.r];}
-function evaluateHand(cards){
-  const sorted=[...cards].sort((a,b)=>getRank(b)-getRank(a));
-  const ranks=sorted.map(c=>getRank(c));
-  const suits=sorted.map(c=>c.s);
-  const rankCounts={};
-  ranks.forEach(r=>{rankCounts[r]=(rankCounts[r]||0)+1;});
-  const groups=Object.entries(rankCounts).map(([r,c])=>({r:+r,c})).sort((a,b)=>b.c-a.c||b.r-a.r);
-  const counts=groups.map(g=>g.c);
-  const uniqueRanks=[...new Set(ranks)].sort((a,b)=>b-a);
-  const isFlush=suits.every(s=>s===suits[0]);
-  const isStraight=uniqueRanks.length===5&&uniqueRanks[0]-uniqueRanks[4]===4;
-  const isWheelStraight=uniqueRanks.join(",")==="14,5,4,3,2";
-  if((isStraight||isWheelStraight)&&isFlush){const high=isWheelStraight?5:uniqueRanks[0];return {rank:8,name:high===14?"Royal Flush":"Straight Flush",tb:[high]};}
-  if(counts[0]===4)return {rank:7,name:"Four of a Kind",tb:[groups[0].r,groups[1].r]};
-  if(counts[0]===3&&counts[1]===2)return {rank:6,name:"Full House",tb:[groups[0].r,groups[1].r]};
-  if(isFlush)return {rank:5,name:"Flush",tb:ranks};
-  if(isStraight||isWheelStraight)return {rank:4,name:"Straight",tb:[isWheelStraight?5:uniqueRanks[0]]};
-  if(counts[0]===3){const kickers=groups.filter(g=>g.c===1).map(g=>g.r).sort((a,b)=>b-a);return {rank:3,name:"Three of a Kind",tb:[groups[0].r,...kickers]};}
-  if(counts[0]===2&&counts[1]===2){const kicker=groups.find(g=>g.c===1)?.r||0;return {rank:2,name:"Two Pair",tb:[groups[0].r,groups[1].r,kicker]};}
-  if(counts[0]===2){const kickers=groups.filter(g=>g.c===1).map(g=>g.r).sort((a,b)=>b-a);return {rank:1,name:"Pair",tb:[groups[0].r,...kickers]};}
-  return {rank:0,name:"High Card ("+sorted[0].r+")",tb:ranks};
-}
-function bestOf7(cards){let best=null;for(let i=0;i<cards.length;i++)for(let j=i+1;j<cards.length;j++){const five=cards.filter((_,idx)=>idx!==i&&idx!==j);const ev=evaluateHand(five);if(!best||ev.rank>best.rank||(ev.rank===best.rank&&compareTB(ev.tb,best.tb)>0))best=ev;}return best;}
-function compareTB(a,b){for(let i=0;i<Math.min(a.length,b.length);i++){if(a[i]!==b[i])return a[i]-b[i];}return 0;}
 
 const C={bg:"#0c1a10",bgMid:"#132b1a",panel:"#1a3d25",panelAlt:"#142e1c",border:"#2a5c3a",gold:"#e8c84a",goldDim:"#e8c84a44",text:"#f0e6c8",muted:"#7ec493",mutedDim:"#3a6a4a",win:"#4ade80",winBg:"#0d3320",winBorder:"#22c55e",lose:"#f87171",loseBg:"#3a0f0f",loseBorder:"#ef4444",push:"#93c5fd",pushBg:"#0f1f3a",pushBorder:"#3b82f6"};
 
@@ -74,9 +43,11 @@ const GLOBAL_CSS=`
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
 `;
 
+const chipColors=["#3d8b7a","#3a6ab5","#9e3a3a","#6b4ab5","#b58a20","#2e6e45"];
+const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
+
 function BetInput({balance,bet,setBet,disabled}){
   const chips=[1,5,10,25,50,100];
-  const chipColors=["#3d8b7a","#3a6ab5","#9e3a3a","#6b4ab5","#b58a20","#2e6e45"];
   return (<div style={{margin:"12px 0"}} role="group" aria-label="Bet amount controls">
     <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:10,alignItems:"center"}}>
       {chips.map((v,i)=>(<button key={v} disabled={disabled||v>balance} aria-label={`Add $${v} to bet`} onClick={()=>setBet(b=>Math.min(b+v,balance))} style={S.chip(chipColors[i])}>{v}</button>))}
@@ -100,6 +71,11 @@ function ResultBanner({result}){
     <div style={{fontSize:20,fontWeight:700}}>{icon} {result.label}{netStr}</div>
     {result.detail&&<div style={{fontSize:12,marginTop:5,color:C.muted}}>{result.detail}</div>}
   </div>);
+}
+
+function ErrorNotice({error}){
+  if(!error)return null;
+  return (<div role="alert" style={{textAlign:"center",padding:"10px",borderRadius:8,marginTop:12,background:"#2a1a00",border:"1px solid #c87020",color:"#ffaa44",fontSize:13}}>{error}</div>);
 }
 
 function BrokeNotice({onAtm}){
@@ -129,11 +105,16 @@ function AuthScreen({onLogin}){
   async function handleEnter(){
     const e=email.trim().toLowerCase();
     if(!e.includes("@")){setMsg("Enter a valid email address.");return;}
-    setLoading(true);
-    let user=await loadUser(e);
-    if(!user){user={email:e,balance:STARTING_BALANCE,lastAtm:0,created:Date.now()};await saveUser(e,user);setMsg(`Welcome! Your account starts with $${STARTING_BALANCE}.`);}
-    setTimeout(()=>onLogin(user),400);
-    setLoading(false);
+    setLoading(true);setMsg("");
+    try{
+      const {user,isNew,startingBalance}=await api.login(e);
+      if(isNew)setMsg(`Welcome! Your account starts with $${startingBalance}.`);
+      setTimeout(()=>onLogin(user),isNew?500:200);
+    }catch(err){
+      setMsg(err.message||"Couldn't sign in. Try again.");
+    }finally{
+      setLoading(false);
+    }
   }
   return (<div style={{...S.app,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
     <div style={{...S.panel,maxWidth:420,textAlign:"center"}}>
@@ -160,8 +141,11 @@ const GAMES=[
 ];
 
 function Lobby({user,onGame,onAtm,onLogout}){
-  const canAtm=Date.now()-user.lastAtm>ATM_COOLDOWN_MS;
-  const cooldownMin=Math.max(0,Math.ceil((ATM_COOLDOWN_MS-(Date.now()-user.lastAtm))/60000));
+  // Snapshot the clock once per mount (display-only; the server is the real
+  // cooldown enforcer). Keeps render pure for the react-hooks lint rule.
+  const [now]=useState(()=>Date.now());
+  const canAtm=now-user.lastAtm>ATM_COOLDOWN_MS;
+  const cooldownMin=Math.max(0,Math.ceil((ATM_COOLDOWN_MS-(now-user.lastAtm))/60000));
   const broke=user.balance<1;
   return (<div style={S.app}>
     <div style={S.header}>
@@ -192,72 +176,85 @@ function Lobby({user,onGame,onAtm,onLogout}){
   </div>);
 }
 
-function PokerGame({user,onUpdate,onBack,onAtm}){
-  const [phase,setPhase]=useState("bet");
-  const [deck,setDeck]=useState([]);
+function PokerGame({user,onUpdate,onBack,onAtm,onError}){
+  const [phase,setPhase]=useState("bet"); // bet | deal | flop | turn | river | showdown
   const [player,setPlayer]=useState([]);
   const [dealer,setDealer]=useState([]);
   const [community,setCommunity]=useState([]);
+  const [revealed,setRevealed]=useState(false);
   const [bet,setBet]=useState(10);
   const [pot,setPot]=useState(0);
   const [result,setResult]=useState(null);
   const [balance,setBalance]=useState(user.balance);
+  const [busy,setBusy]=useState(false);
+  const [err,setErr]=useState(null);
   const broke=balance<1;
-  function deal(){if(bet<=0||bet>balance)return;const d=shuffle(makeDeck());setPlayer([d[0],d[2]]);setDealer([d[1],d[3]]);setCommunity([]);setDeck(d.slice(4));setPot(bet);setBalance(b=>b-bet);setResult(null);setPhase("deal");}
-  function flop(){setCommunity([deck[0],deck[1],deck[2]]);setDeck(d=>d.slice(3));setPhase("flop");}
-  function turn(){setCommunity(p=>[...p,deck[0]]);setDeck(d=>d.slice(1));setPhase("turn");}
-  function river(){setCommunity(p=>[...p,deck[0]]);setDeck(d=>d.slice(1));setPhase("river");}
-  function showdown(){
-    const pH=bestOf7([...player,...community]),dH=bestOf7([...dealer,...community]);
-    let win=false,push=false;
-    if(pH.rank>dH.rank||(pH.rank===dH.rank&&compareTB(pH.tb,dH.tb)>0))win=true;
-    else if(pH.rank===dH.rank&&compareTB(pH.tb,dH.tb)===0)push=true;
-    const newBal=balance+(win?pot*2:push?pot:0);
-    setBalance(newBal);
-    setResult({label:win?"You win!":push?"Push — tie hand":"Dealer wins",won:win,delta:win?pot:push?0:-pot,detail:`You: ${pH.name} · Dealer: ${dH.name}`});
-    setPhase("showdown");onUpdate({...user,balance:newBal});
+
+  function fail(e){ if(e.status===401){onError(e);return;} setErr(e.message); }
+
+  async function deal(){
+    if(busy||bet<=0||bet>balance)return;
+    setBusy(true);setErr(null);
+    try{
+      const r=await api.pokerDeal(bet);
+      setPlayer(r.player);setDealer([]);setCommunity([]);setRevealed(false);
+      setPot(r.pot);setBalance(r.balance);setResult(null);setPhase("deal");
+      onUpdate({...user,balance:r.balance});
+    }catch(e){fail(e);}finally{setBusy(false);}
   }
-  function fold(){setResult({label:"Folded",won:false,delta:-pot,detail:"You surrendered the pot."});setPhase("showdown");onUpdate({...user,balance});}
-  function reset(){user.balance=balance;setBet(b=>Math.min(b,balance));setPhase("bet");setResult(null);}
+  async function advance(){
+    if(busy)return;
+    setBusy(true);setErr(null);
+    try{ const r=await api.pokerAdvance(); setCommunity(r.community); setPhase(r.phase); }
+    catch(e){fail(e);}finally{setBusy(false);}
+  }
+  async function showdown(){
+    if(busy)return;
+    setBusy(true);setErr(null);
+    try{
+      const r=await api.pokerShowdown();
+      setDealer(r.dealer);setCommunity(r.community);setRevealed(true);setBalance(r.balance);
+      setResult({label:r.won?"You win!":r.push?"Push — tie hand":"Dealer wins",won:r.won,delta:r.delta,detail:`You: ${r.playerHand} · Dealer: ${r.dealerHand}`});
+      setPhase("showdown");onUpdate({...user,balance:r.balance});
+    }catch(e){fail(e);}finally{setBusy(false);}
+  }
+  async function fold(){
+    if(busy)return;
+    setBusy(true);setErr(null);
+    try{
+      const r=await api.pokerFold();
+      setBalance(r.balance);
+      setResult({label:"Folded",won:false,delta:r.delta,detail:"You surrendered the pot."});
+      setPhase("showdown");onUpdate({...user,balance:r.balance});
+    }catch(e){fail(e);}finally{setBusy(false);}
+  }
+  function reset(){setBet(b=>Math.min(b||10,balance));setPhase("bet");setResult(null);setPlayer([]);setDealer([]);setCommunity([]);setRevealed(false);}
+
   return (<div style={{...S.app,padding:"0 0 40px"}}>
     <GameHeader title="Texas Hold'em Poker" balance={balance} onBack={onBack} onAtm={onAtm}/>
     <div style={S.panel}>
       <div style={S.sectionTitle}>Dealer's hand</div>
-      <div style={{minHeight:78,display:"flex",alignItems:"center",flexWrap:"wrap",gap:2}}>{dealer.map((c,i)=><CardEl key={i} card={c} hidden={phase!=="showdown"}/>)}{!dealer.length&&<span style={{color:C.mutedDim,fontSize:12}}>waiting for deal…</span>}</div>
+      <div style={{minHeight:78,display:"flex",alignItems:"center",flexWrap:"wrap",gap:2}}>{phase==="bet"?<span style={{color:C.mutedDim,fontSize:12}}>waiting for deal…</span>:revealed?dealer.map((c,i)=><CardEl key={i} card={c}/>):[0,1].map(i=><CardEl key={i} card={{}} hidden/>)}</div>
       <div style={{...S.sectionTitle,marginTop:18}}>Community cards</div>
       <div style={{minHeight:78,display:"flex",alignItems:"center",flexWrap:"wrap",gap:2}}>{community.map((c,i)=><CardEl key={i} card={c}/>)}{!community.length&&<span style={{color:C.mutedDim,fontSize:12}}>awaiting flop…</span>}</div>
       <div style={{...S.sectionTitle,marginTop:18}}>Your hand</div>
       <div style={{minHeight:78,display:"flex",alignItems:"center",flexWrap:"wrap",gap:2}}>{player.map((c,i)=><CardEl key={i} card={c}/>)}{!player.length&&<span style={{color:C.mutedDim,fontSize:12}}>waiting for deal…</span>}</div>
-      {phase==="showdown"&&<div style={{color:C.gold,fontSize:13,marginTop:8}}>Your best hand: <b>{bestOf7([...player,...community])?.name}</b></div>}
       <div style={{marginTop:14}}>
-        {phase==="bet"&&(broke?<BrokeNotice onAtm={onAtm}/>:<><BetInput balance={balance} bet={bet} setBet={setBet}/><button style={{...S.btn("gold"),marginTop:8}} onClick={deal} disabled={bet<=0||bet>balance}>Deal cards</button></>)}
-        {phase==="deal"&&<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button style={S.btn("green")} onClick={flop}>Check / see flop</button><button style={S.btn("red")} onClick={fold}>Fold</button></div>}
-        {phase==="flop"&&<button style={S.btn("green")} onClick={turn}>Check / see turn</button>}
-        {phase==="turn"&&<button style={S.btn("green")} onClick={river}>Check / see river</button>}
-        {phase==="river"&&<button style={S.btn("gold")} onClick={showdown}>Go to showdown</button>}
+        {phase==="bet"&&(broke?<BrokeNotice onAtm={onAtm}/>:<><BetInput balance={balance} bet={bet} setBet={setBet} disabled={busy}/><button style={{...S.btn("gold"),marginTop:8}} onClick={deal} disabled={busy||bet<=0||bet>balance}>{busy?"Dealing…":"Deal cards"}</button></>)}
+        {phase==="deal"&&<div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button style={S.btn("green")} onClick={advance} disabled={busy}>Check / see flop</button><button style={S.btn("red")} onClick={fold} disabled={busy}>Fold</button></div>}
+        {phase==="flop"&&<button style={S.btn("green")} onClick={advance} disabled={busy}>Check / see turn</button>}
+        {phase==="turn"&&<button style={S.btn("green")} onClick={advance} disabled={busy}>Check / see river</button>}
+        {phase==="river"&&<button style={S.btn("gold")} onClick={showdown} disabled={busy}>Go to showdown</button>}
       </div>
       <div style={{marginTop:6,color:C.muted,fontSize:12}} aria-live="polite">Pot: ${pot}</div>
       <ResultBanner result={result}/>
+      <ErrorNotice error={err}/>
       {phase==="showdown"&&<button style={{...S.btn("gold"),marginTop:14}} onClick={reset}>New hand</button>}
     </div>
   </div>);
 }
 
-const RED_NUMS=[1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
-const ROULETTE_BETS=[
-  {id:"red",label:"🔴 Red",payout:1,check:n=>RED_NUMS.includes(n)},
-  {id:"black",label:"⚫ Black",payout:1,check:n=>n>0&&!RED_NUMS.includes(n)},
-  {id:"odd",label:"Odd",payout:1,check:n=>n%2!==0&&n>0},
-  {id:"even",label:"Even",payout:1,check:n=>n%2===0&&n>0},
-  {id:"1-18",label:"1–18",payout:1,check:n=>n>=1&&n<=18},
-  {id:"19-36",label:"19–36",payout:1,check:n=>n>=19&&n<=36},
-  {id:"1st12",label:"1st 12",payout:2,check:n=>n>=1&&n<=12},
-  {id:"2nd12",label:"2nd 12",payout:2,check:n=>n>=13&&n<=24},
-  {id:"3rd12",label:"3rd 12",payout:2,check:n=>n>=25&&n<=36},
-  {id:"0",label:"Zero (35:1)",payout:35,check:n=>n===0},
-];
-
-function RouletteGame({user,onUpdate,onBack,onAtm}){
+function RouletteGame({user,onUpdate,onBack,onAtm,onError,config}){
   const [balance,setBalance]=useState(user.balance);
   const [bets,setBets]=useState({});
   const [chipVal,setChipVal]=useState(5);
@@ -265,43 +262,44 @@ function RouletteGame({user,onUpdate,onBack,onAtm}){
   const [landed,setLanded]=useState(null);
   const [result,setResult]=useState(null);
   const [history,setHistory]=useState([]);
+  const [err,setErr]=useState(null);
   const totalBet=Object.values(bets).reduce((a,b)=>a+b,0);
   const broke=balance<1;
-  const chipColors=["#3d8b7a","#3a6ab5","#9e3a3a","#6b4ab5","#b58a20","#2e6e45"];
-  function spin(){
-    if(totalBet<=0||spinning)return;
-    setSpinning(true);setBalance(b=>b-totalBet);setResult(null);
-    setTimeout(()=>{
-      const n=Math.floor(Math.random()*37);
-      setLanded(n);
-      let winnings=0;const wins=[];
-      for(const [id,amount] of Object.entries(bets)){const bt=ROULETTE_BETS.find(b=>b.id===id);if(bt&&bt.check(n)){winnings+=amount*(bt.payout+1);wins.push(bt.label);}}
-      setBalance(b=>b+winnings);
-      const newBal=balance-totalBet+winnings;
-      setResult({label:winnings>0?"You win!":"Dealer wins this round",won:winnings>0,delta:winnings-totalBet,detail:`Ball landed on ${n} ${RED_NUMS.includes(n)?"🔴":n===0?"🟢":"⚫"}${wins.length?" · Hits: "+wins.join(", "):""}`});
-      setHistory(h=>[{n,color:n===0?"green":RED_NUMS.includes(n)?"red":"black"},...h].slice(0,14));
-      onUpdate({...user,balance:newBal});setSpinning(false);
-    },1800);
+  const redNums=config.redNums;
+  const isRed=(n)=>redNums.includes(n);
+  async function spin(){
+    if(totalBet<=0||spinning||totalBet>balance)return;
+    setSpinning(true);setResult(null);setErr(null);
+    try{
+      const [r]=await Promise.all([api.betRoulette(bets),sleep(1400)]);
+      setLanded(r.landed);setBalance(r.balance);
+      const wins=r.wins;
+      setResult({label:r.delta>0?"You win!":"Dealer wins this round",won:r.delta>0,delta:r.delta,detail:`Ball landed on ${r.landed} ${isRed(r.landed)?"🔴":r.landed===0?"🟢":"⚫"}${wins.length?" · Hits: "+wins.join(", "):""}`});
+      setHistory(h=>[{n:r.landed,color:r.landed===0?"green":isRed(r.landed)?"red":"black"},...h].slice(0,14));
+      onUpdate({...user,balance:r.balance});
+    }catch(e){ if(e.status===401){onError(e);return;} setErr(e.message); }
+    finally{setSpinning(false);}
   }
   return (<div style={{...S.app,padding:"0 0 40px"}}>
     <GameHeader title="European Roulette" balance={balance} onBack={onBack} onAtm={onAtm}/>
     <div style={S.panel}>
-      <div style={{textAlign:"center",marginBottom:14}}>{spinning?<div style={{fontSize:52}} role="status" aria-label="Wheel spinning">🎡</div>:landed!==null?<div style={{fontSize:56,fontWeight:700,color:landed===0?"#4ade80":RED_NUMS.includes(landed)?"#f87171":C.text}} role="status" aria-label={`Ball landed on ${landed}`}>{landed}</div>:<div style={{fontSize:52,color:C.mutedDim}} aria-hidden="true">🎡</div>}</div>
+      <div style={{textAlign:"center",marginBottom:14}}>{spinning?<div style={{fontSize:52}} role="status" aria-label="Wheel spinning">🎡</div>:landed!==null?<div style={{fontSize:56,fontWeight:700,color:landed===0?"#4ade80":isRed(landed)?"#f87171":C.text}} role="status" aria-label={`Ball landed on ${landed}`}>{landed}</div>:<div style={{fontSize:52,color:C.mutedDim}} aria-hidden="true">🎡</div>}</div>
       {history.length>0&&<div style={{display:"flex",gap:3,marginBottom:14,flexWrap:"wrap"}} aria-label="Recent results">{history.map((h,i)=>(<span key={i} style={{width:24,height:24,borderRadius:"50%",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,background:h.color==="green"?"#1a5a1a":h.color==="red"?"#5a1a1a":"#1a1a2e",border:"1px solid #444",color:C.text}}>{h.n}</span>))}</div>}
       <div style={S.sectionTitle}>Chip value</div>
       <div style={{display:"flex",gap:4,marginBottom:14,flexWrap:"wrap"}}>{[1,5,10,25,50,100].map((v,i)=>(<button key={v} onClick={()=>setChipVal(v)} aria-pressed={chipVal===v} style={S.chip(chipColors[i],chipVal===v)}>{v}</button>))}</div>
       {broke?<BrokeNotice onAtm={onAtm}/>:<>
         <div style={S.sectionTitle}>Place bets</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginBottom:14}}>{ROULETTE_BETS.map(b=>(<button key={b.id} aria-pressed={!!bets[b.id]} onClick={()=>{if(!spinning&&balance-totalBet>=chipVal)setBets(p=>({...p,[b.id]:(p[b.id]||0)+chipVal}))}} style={{background:bets[b.id]?C.winBg:C.panelAlt,border:`1px solid ${bets[b.id]?C.winBorder:C.border}`,borderRadius:8,padding:"10px 6px",cursor:"pointer",color:bets[b.id]?C.win:C.text,fontSize:12,fontFamily:"'Courier New',monospace",display:"flex",flexDirection:"column",alignItems:"center",gap:3,minHeight:52}}><span>{b.label}</span>{bets[b.id]>0&&<span style={{fontSize:10,color:C.gold}}>${bets[b.id]}</span>}</button>))}</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginBottom:14}}>{config.roulette.map(b=>(<button key={b.id} aria-pressed={!!bets[b.id]} onClick={()=>{if(!spinning&&balance-totalBet>=chipVal)setBets(p=>({...p,[b.id]:(p[b.id]||0)+chipVal}))}} style={{background:bets[b.id]?C.winBg:C.panelAlt,border:`1px solid ${bets[b.id]?C.winBorder:C.border}`,borderRadius:8,padding:"10px 6px",cursor:"pointer",color:bets[b.id]?C.win:C.text,fontSize:12,fontFamily:"'Courier New',monospace",display:"flex",flexDirection:"column",alignItems:"center",gap:3,minHeight:52}}><span>{b.label}</span>{bets[b.id]>0&&<span style={{fontSize:10,color:C.gold}}>${bets[b.id]}</span>}</button>))}</div>
         <div style={{color:C.gold,fontSize:13,marginBottom:10}} aria-live="polite">Total bet: ${totalBet}</div>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button style={S.btn("gold")} onClick={spin} disabled={spinning||totalBet<=0}>{spinning?"Spinning…":"Spin the wheel"}</button><button style={S.btn("ghost")} onClick={()=>setBets({})} disabled={spinning}>Clear bets</button></div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button style={S.btn("gold")} onClick={spin} disabled={spinning||totalBet<=0||totalBet>balance}>{spinning?"Spinning…":"Spin the wheel"}</button><button style={S.btn("ghost")} onClick={()=>setBets({})} disabled={spinning}>Clear bets</button></div>
       </>}
       <ResultBanner result={result}/>
+      <ErrorNotice error={err}/>
     </div>
   </div>);
 }
 
-function CrapsGame({user,onUpdate,onBack,onAtm}){
+function CrapsGame({user,onUpdate,onBack,onAtm,onError}){
   const [balance,setBalance]=useState(user.balance);
   const [bet,setBet]=useState(10);
   const [type,setType]=useState("pass");
@@ -311,98 +309,69 @@ function CrapsGame({user,onUpdate,onBack,onAtm}){
   const [rolling,setRolling]=useState(false);
   const [result,setResult]=useState(null);
   const [msg,setMsg]=useState("Choose Pass or Don't Pass, set your bet, then roll.");
+  const [err,setErr]=useState(null);
   const diceSymbols=["","⚀","⚁","⚂","⚃","⚄","⚅"];
   const broke=balance<1;
-  function roll(){
+  async function roll(){
     if(rolling)return;
-    if(phase==="comeout"&&bet>balance)return;
-    setRolling(true);setResult(null);
-    if(phase==="comeout")setBalance(b=>b-bet);
-    setTimeout(()=>{
-      const d1=Math.ceil(Math.random()*6),d2=Math.ceil(Math.random()*6),sum=d1+d2;
-      setDice([d1,d2]);
-      if(phase==="comeout"){
-        if(type==="pass"){
-          if(sum===7||sum===11){setResult({label:"Natural — you win!",won:true,delta:bet,detail:`Rolled ${sum}`});setBalance(b=>b+bet*2);onUpdate({...user,balance:balance+bet});setPhase("comeout");setPoint(null);}
-          else if(sum===2||sum===3||sum===12){setResult({label:"Craps — you lose",won:false,delta:-bet,detail:`Rolled ${sum}`});onUpdate({...user,balance:balance-bet});setPhase("comeout");setPoint(null);}
-          else{setPoint(sum);setPhase("point");setMsg(`Point is ${sum}. Roll it again before a 7.`);}
-        }else{
-          if(sum===2||sum===3){setResult({label:"Win! (Craps)",won:true,delta:bet,detail:`Rolled ${sum}`});setBalance(b=>b+bet*2);onUpdate({...user,balance:balance+bet});setPhase("comeout");setPoint(null);}
-          else if(sum===12){setResult({label:"Push (Bar 12)",won:false,delta:0,detail:"Rolled 12 — bar"});setBalance(b=>b+bet);onUpdate({...user,balance});setPhase("comeout");setPoint(null);}
-          else if(sum===7||sum===11){setResult({label:"Don't Pass loses",won:false,delta:-bet,detail:`Rolled ${sum}`});onUpdate({...user,balance:balance-bet});setPhase("comeout");setPoint(null);}
-          else{setPoint(sum);setPhase("point");setMsg(`Point is ${sum}. Roll a 7 to win.`);}
-        }
+    if(phase==="comeout"&&(bet<=0||bet>balance))return;
+    setRolling(true);setResult(null);setErr(null);
+    try{
+      const [r]=await Promise.all([api.crapsRoll(bet,type),sleep(650)]);
+      setDice(r.dice);setBalance(r.balance);setPhase(r.phase);setPoint(r.point);setMsg(r.label);
+      if(r.settled){
+        setResult({label:r.label,won:r.outcome==="win",delta:r.delta,detail:`Rolled ${r.sum}`});
+        onUpdate({...user,balance:r.balance});
       }else{
-        if(type==="pass"){
-          if(sum===point){setResult({label:"Hit the point — you win!",won:true,delta:bet,detail:`Rolled ${sum}`});setBalance(b=>b+bet*2);onUpdate({...user,balance:balance+bet});setPhase("comeout");setPoint(null);}
-          else if(sum===7){setResult({label:"Seven out — you lose",won:false,delta:-bet,detail:"Rolled 7"});onUpdate({...user,balance});setPhase("comeout");setPoint(null);}
-          else setMsg(`Point: ${point}. Keep rolling…`);
-        }else{
-          if(sum===7){setResult({label:"7 before point — you win!",won:true,delta:bet,detail:"Rolled 7"});setBalance(b=>b+bet*2);onUpdate({...user,balance:balance+bet});setPhase("comeout");setPoint(null);}
-          else if(sum===point){setResult({label:"Point hit — you lose",won:false,delta:-bet,detail:`Rolled ${sum}`});onUpdate({...user,balance});setPhase("comeout");setPoint(null);}
-          else setMsg(`Point: ${point}. Keep rolling…`);
-        }
+        onUpdate({...user,balance:r.balance});
       }
-      setRolling(false);
-    },800);
+    }catch(e){ if(e.status===401){onError(e);return;} setErr(e.message); }
+    finally{setRolling(false);}
   }
+  function newRound(){setResult(null);setDice([null,null]);setPhase("comeout");setPoint(null);setMsg("Choose Pass or Don't Pass and roll.");}
   return (<div style={{...S.app,padding:"0 0 40px"}}>
     <GameHeader title="Craps" balance={balance} onBack={onBack} onAtm={onAtm}/>
     <div style={S.panel}>
       <div style={{display:"flex",gap:8,marginBottom:14}} role="group" aria-label="Bet type">
-        <button onClick={()=>{if(phase==="comeout")setType("pass")}} aria-pressed={type==="pass"} style={{...S.btn(type==="pass"?"gold":"ghost"),flex:1}}>Pass Line</button>
-        <button onClick={()=>{if(phase==="comeout")setType("dontpass")}} aria-pressed={type==="dontpass"} style={{...S.btn(type==="dontpass"?"gold":"ghost"),flex:1}}>Don't Pass</button>
+        <button onClick={()=>{if(phase==="comeout"&&!rolling)setType("pass")}} aria-pressed={type==="pass"} style={{...S.btn(type==="pass"?"gold":"ghost"),flex:1}}>Pass Line</button>
+        <button onClick={()=>{if(phase==="comeout"&&!rolling)setType("dontpass")}} aria-pressed={type==="dontpass"} style={{...S.btn(type==="dontpass"?"gold":"ghost"),flex:1}}>Don't Pass</button>
       </div>
       {point&&<div style={{color:C.gold,fontSize:20,fontWeight:700,textAlign:"center",marginBottom:10}} aria-live="polite">Point: {point}</div>}
       <div style={{display:"flex",gap:16,justifyContent:"center",margin:"18px 0"}} role="status" aria-label={rolling?"Dice rolling":`Dice showing ${dice[0]||"?"} and ${dice[1]||"?"}`}>{dice.map((d,i)=><div key={i} style={{fontSize:60,lineHeight:1}} aria-hidden="true">{rolling?"🎲":d?diceSymbols[d]:"🎲"}</div>)}</div>
       {dice[0]&&!rolling&&<div style={{textAlign:"center",color:C.muted,fontSize:15,marginBottom:8}} aria-live="polite">Sum: <b>{dice[0]+dice[1]}</b></div>}
       <div style={{color:C.muted,fontSize:12,margin:"8px 0"}} aria-live="polite">{msg}</div>
-      {broke?<BrokeNotice onAtm={onAtm}/>:<>
+      {broke&&phase==="comeout"?<BrokeNotice onAtm={onAtm}/>:<>
         {phase==="comeout"&&<BetInput balance={balance} bet={bet} setBet={setBet} disabled={rolling}/>}
         <button style={S.btn("gold")} onClick={roll} disabled={rolling||(phase==="comeout"&&bet<=0)}>{rolling?"Rolling…":"Roll the dice"}</button>
       </>}
       <ResultBanner result={result}/>
-      {result&&phase==="comeout"&&<button style={{...S.btn("green"),marginTop:10}} onClick={()=>{setResult(null);setDice([null,null]);setMsg("Choose Pass or Don't Pass and roll.");}}>New round</button>}
+      <ErrorNotice error={err}/>
+      {result&&phase==="comeout"&&<button style={{...S.btn("green"),marginTop:10}} onClick={newRound}>New round</button>}
     </div>
   </div>);
 }
 
-const SIC_BO_BETS=[
-  {id:"small",label:"Small (4–10)",payout:1,check:(s,d)=>s>=4&&s<=10&&!(d[0]===d[1]&&d[1]===d[2])},
-  {id:"big",label:"Big (11–17)",payout:1,check:(s,d)=>s>=11&&s<=17&&!(d[0]===d[1]&&d[1]===d[2])},
-  {id:"even",label:"Even sum",payout:1,check:(s)=>s%2===0},
-  {id:"odd",label:"Odd sum",payout:1,check:(s)=>s%2!==0},
-  {id:"triple",label:"Any triple",payout:30,check:(_,d)=>d[0]===d[1]&&d[1]===d[2]},
-  {id:"sum7",label:"Sum = 7",payout:12,check:(s)=>s===7},
-  {id:"sum14",label:"Sum = 14",payout:12,check:(s)=>s===14},
-  {id:"sum4",label:"Sum = 4",payout:50,check:(s)=>s===4},
-  {id:"sum17",label:"Sum = 17",payout:50,check:(s)=>s===17},
-];
-
-function SicBoGame({user,onUpdate,onBack,onAtm}){
+function SicBoGame({user,onUpdate,onBack,onAtm,onError,config}){
   const [balance,setBalance]=useState(user.balance);
   const [bets,setBets]=useState({});
   const [chipVal,setChipVal]=useState(5);
   const [dice,setDice]=useState([null,null,null]);
   const [rolling,setRolling]=useState(false);
   const [result,setResult]=useState(null);
+  const [err,setErr]=useState(null);
   const totalBet=Object.values(bets).reduce((a,b)=>a+b,0);
   const diceSymbols=["","⚀","⚁","⚂","⚃","⚄","⚅"];
   const broke=balance<1;
-  function roll(){
-    if(totalBet<=0||rolling)return;
-    setRolling(true);setResult(null);setBalance(b=>b-totalBet);
-    setTimeout(()=>{
-      const d=[Math.ceil(Math.random()*6),Math.ceil(Math.random()*6),Math.ceil(Math.random()*6)];
-      const s=d.reduce((a,b)=>a+b,0);
-      setDice(d);
-      let winnings=0;const wins=[];
-      for(const [id,amount] of Object.entries(bets)){const bt=SIC_BO_BETS.find(b=>b.id===id);if(bt&&bt.check(s,d)){winnings+=amount*(bt.payout+1);wins.push(bt.label);}}
-      setBalance(b=>b+winnings);
-      const newBal=balance-totalBet+winnings;
-      setResult({label:winnings>0?"You win!":"No match — try again",won:winnings>0,delta:winnings-totalBet,detail:`Dice: ${d.join(" ")} = ${s}${wins.length?" · "+wins.join(", "):""}`});
-      onUpdate({...user,balance:newBal});setRolling(false);
-    },900);
+  async function roll(){
+    if(totalBet<=0||rolling||totalBet>balance)return;
+    setRolling(true);setResult(null);setErr(null);
+    try{
+      const [r]=await Promise.all([api.betSicbo(bets),sleep(750)]);
+      setDice(r.dice);setBalance(r.balance);
+      setResult({label:r.delta>0?"You win!":"No match — try again",won:r.delta>0,delta:r.delta,detail:`Dice: ${r.dice.join(" ")} = ${r.sum}${r.wins.length?" · "+r.wins.join(", "):""}`});
+      onUpdate({...user,balance:r.balance});
+    }catch(e){ if(e.status===401){onError(e);return;} setErr(e.message); }
+    finally{setRolling(false);}
   }
   return (<div style={{...S.app,padding:"0 0 40px"}}>
     <GameHeader title="Sic Bo" balance={balance} onBack={onBack} onAtm={onAtm}/>
@@ -411,48 +380,46 @@ function SicBoGame({user,onUpdate,onBack,onAtm}){
       <div style={S.sectionTitle}>Chip value: ${chipVal}</div>
       <div style={{display:"flex",gap:4,marginBottom:14,flexWrap:"wrap"}}>{[1,5,10,25].map((v,i)=>(<button key={v} onClick={()=>setChipVal(v)} aria-pressed={chipVal===v} style={S.chip(["#3d8b7a","#3a6ab5","#9e3a3a","#6b4ab5"][i],chipVal===v)}>{v}</button>))}</div>
       {broke?<BrokeNotice onAtm={onAtm}/>:<>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:14}}>{SIC_BO_BETS.map(b=>(<button key={b.id} aria-pressed={!!bets[b.id]} onClick={()=>{if(!rolling&&balance-totalBet>=chipVal)setBets(p=>({...p,[b.id]:(p[b.id]||0)+chipVal}))}} style={{background:bets[b.id]?C.winBg:C.panelAlt,border:`1px solid ${bets[b.id]?C.winBorder:C.border}`,borderRadius:8,padding:"10px",cursor:"pointer",color:bets[b.id]?C.win:C.text,fontFamily:"'Courier New',monospace",fontSize:12,textAlign:"left",minHeight:52}}>{b.label}<span style={{display:"block",fontSize:10,color:C.gold,marginTop:2}}>{b.payout}:1{bets[b.id]>0&&" · $"+bets[b.id]}</span></button>))}</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:7,marginBottom:14}}>{config.sicbo.map(b=>(<button key={b.id} aria-pressed={!!bets[b.id]} onClick={()=>{if(!rolling&&balance-totalBet>=chipVal)setBets(p=>({...p,[b.id]:(p[b.id]||0)+chipVal}))}} style={{background:bets[b.id]?C.winBg:C.panelAlt,border:`1px solid ${bets[b.id]?C.winBorder:C.border}`,borderRadius:8,padding:"10px",cursor:"pointer",color:bets[b.id]?C.win:C.text,fontFamily:"'Courier New',monospace",fontSize:12,textAlign:"left",minHeight:52}}>{b.label}<span style={{display:"block",fontSize:10,color:C.gold,marginTop:2}}>{b.payout}:1{bets[b.id]>0&&" · $"+bets[b.id]}</span></button>))}</div>
         <div style={{color:C.gold,fontSize:13,marginBottom:10}} aria-live="polite">Total bet: ${totalBet}</div>
-        <div style={{display:"flex",gap:8}}><button style={S.btn("gold")} onClick={roll} disabled={rolling||totalBet<=0}>{rolling?"Rolling…":"Roll the dice"}</button><button style={S.btn("ghost")} onClick={()=>setBets({})} disabled={rolling}>Clear bets</button></div>
+        <div style={{display:"flex",gap:8}}><button style={S.btn("gold")} onClick={roll} disabled={rolling||totalBet<=0||totalBet>balance}>{rolling?"Rolling…":"Roll the dice"}</button><button style={S.btn("ghost")} onClick={()=>setBets({})} disabled={rolling}>Clear bets</button></div>
       </>}
       <ResultBanner result={result}/>
+      <ErrorNotice error={err}/>
     </div>
   </div>);
 }
 
-const SLOT_CONFIGS={
-  slots1:{name:"Classic Slots",reels:[["7","BAR","BAR","🍒","🔔","💎","⭐","BAR","🍒"],["7","BAR","🍒","BAR","🔔","💎","⭐","BAR","🍒"],["7","BAR","🍒","BAR","🔔","💎","BAR","⭐","🍒"]],symbols:["🍒","BAR","7","💎","⭐","🔔"],paylines:[{s:"7 7 7",m:100},{s:"💎 💎 💎",m:50},{s:"BAR BAR BAR",m:20},{s:"⭐ ⭐ ⭐",m:10},{s:"🍒 🍒 🍒",m:5},{s:"🍒 🍒",m:2},{s:"🍒",m:0.5}],getWin(r,bet){const[a,b,c]=r;if(a==="7"&&b==="7"&&c==="7")return bet*100;if(a==="💎"&&b==="💎"&&c==="💎")return bet*50;if(a==="BAR"&&b==="BAR"&&c==="BAR")return bet*20;if(a===b&&b===c)return bet*10;if(a==="🍒"&&b==="🍒")return bet*2;if(a==="🍒")return Math.ceil(bet*0.5);return 0;}},
-  slots2:{name:"Fruit Slots",reels:[["🍒","🍋","🍊","🍇","🍉","🍓","🍑","⭐","🍒","🍋"],["🍒","🍋","🍊","🍇","🍉","🍓","🍑","⭐","🍒","🍋"],["🍒","🍋","🍊","🍇","🍉","🍓","🍑","⭐","🍒","🍋"]],symbols:["🍒","🍋","🍊","🍇","🍉","🍓","🍑","⭐"],paylines:[{s:"⭐ ⭐ ⭐",m:75},{s:"🍉 🍉 🍉",m:30},{s:"🍇 🍇 🍇",m:25},{s:"🍒 🍒 🍒",m:8},{s:"🍒 🍒",m:3},{s:"🍒",m:0.5}],getWin(r,bet){const[a,b,c]=r;if(a===b&&b===c){if(a==="⭐")return bet*75;if(a==="🍉")return bet*30;if(a==="🍇")return bet*25;if(a==="🍑")return bet*20;if(a==="🍓")return bet*15;if(a==="🍊")return bet*12;if(a==="🍋")return bet*10;if(a==="🍒")return bet*8;}if(a==="🍒"&&b==="🍒")return bet*3;if(a==="🍒")return Math.ceil(bet*0.5);return 0;}},
-  slots3:{name:"Lucky Stars — 5 Reel",reels:[["⭐","🌟","💫","✨","🌙","☀️","🪐","🚀"],["⭐","🌟","💫","✨","🌙","☀️","🪐","🚀"],["⭐","🌟","💫","✨","🌙","☀️","🪐","🚀"],["⭐","🌟","💫","✨","🌙","☀️","🪐","🚀"],["⭐","🌟","💫","✨","🌙","☀️","🪐","🚀"]],symbols:["⭐","🌟","💫","✨","🌙","☀️","🪐","🚀"],paylines:[{s:"🚀 × 5",m:500},{s:"☀️ × 5",m:200},{s:"🌟 × 5",m:100},{s:"⭐ × 5",m:50},{s:"any × 5",m:10},{s:"any × 4",m:3},{s:"any × 3",m:2}],getWin(r,bet){if(r.every(x=>x===r[0])){const s=r[0];if(s==="🚀")return bet*500;if(s==="☀️")return bet*200;if(s==="🪐")return bet*150;if(s==="🌟")return bet*100;if(s==="⭐")return bet*50;if(s==="💫")return bet*30;return bet*10;}const counts={};r.forEach(x=>counts[x]=(counts[x]||0)+1);const max=Math.max(...Object.values(counts));if(max>=4)return bet*3;if(max>=3)return bet*2;if(max>=2)return Math.ceil(bet*0.5);return 0;}}
-};
-
-function SlotMachine({user,onUpdate,onBack,onAtm,config}){
-  const {name,reels,symbols,paylines,getWin}=config;
+function SlotMachine({user,onUpdate,onBack,onAtm,onError,gameId,config}){
+  const {name,symbols,reelCount,paylines}=config;
   const [balance,setBalance]=useState(user.balance);
   const [bet,setBet]=useState(5);
   const [spinning,setSpinning]=useState(false);
-  const [display,setDisplay]=useState(reels.map(()=>symbols[0]));
+  const [display,setDisplay]=useState(Array.from({length:reelCount},()=>symbols[0]));
   const [result,setResult]=useState(null);
+  const [err,setErr]=useState(null);
   const broke=balance<1;
-  function spin(){
+  async function spin(){
     if(spinning||bet<=0||bet>balance)return;
-    setSpinning(true);setResult(null);setBalance(b=>b-bet);
-    const intervals=reels.map((_,ri)=>setInterval(()=>{setDisplay(prev=>{const n=[...prev];n[ri]=symbols[Math.floor(Math.random()*symbols.length)];return n;});},80+ri*30));
-    const final=reels.map(reel=>reel[Math.floor(Math.random()*reel.length)]);
-    const stops=reels.map((_,i)=>700+i*200);
-    reels.forEach((_,i)=>{
-      setTimeout(()=>{
-        clearInterval(intervals[i]);
-        setDisplay(prev=>{const n=[...prev];n[i]=final[i];return n;});
-        if(i===reels.length-1){
-          const win=getWin(final,bet);
-          setBalance(b=>b+win);
-          const newBal=balance-bet+win;
-          setResult(win>0?{label:"You win!",won:true,delta:win-bet,detail:`Won $${win} — ${final.join(" ")}`}:{label:"No match — try again",won:false,delta:-bet,detail:final.join(" ")});
-          onUpdate({...user,balance:newBal});setSpinning(false);
-        }
-      },stops[i]);
-    });
+    setSpinning(true);setResult(null);setErr(null);
+    // Animation-only randomness — the blur/whirl. The FINAL symbols come from
+    // the server response, never from this loop.
+    const intervals=Array.from({length:reelCount},(_,ri)=>setInterval(()=>{
+      setDisplay(prev=>{const n=[...prev];n[ri]=symbols[Math.floor(Math.random()*symbols.length)];return n;});
+    },80+ri*30));
+    const stopAnim=()=>intervals.forEach(clearInterval);
+    try{
+      const [r]=await Promise.all([api.betSlots(gameId,bet),sleep(700+reelCount*180)]);
+      stopAnim();
+      setDisplay(r.reels);
+      setBalance(r.balance);
+      setResult(r.win>0?{label:"You win!",won:true,delta:r.delta,detail:`Won $${r.win} — ${r.reels.join(" ")}`}:{label:"No match — try again",won:false,delta:r.delta,detail:r.reels.join(" ")});
+      onUpdate({...user,balance:r.balance});
+    }catch(e){
+      stopAnim();
+      if(e.status===401){onError(e);return;}
+      setErr(e.message);
+    }finally{setSpinning(false);}
   }
   return (<div style={{...S.app,padding:"0 0 40px"}}>
     <GameHeader title={name} balance={balance} onBack={onBack} onAtm={onAtm}/>
@@ -461,18 +428,20 @@ function SlotMachine({user,onUpdate,onBack,onAtm,config}){
       <div style={{marginBottom:14,textAlign:"left"}}><div style={S.sectionTitle}>Payouts</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>{paylines.map((p,i)=><div key={i} style={{fontSize:12,color:C.muted}}>{p.s} → {p.m}×</div>)}</div></div>
       {broke?<BrokeNotice onAtm={onAtm}/>:<><BetInput balance={balance} bet={bet} setBet={setBet} disabled={spinning}/><button style={{...S.btn("gold"),padding:"12px 36px",fontSize:17,marginTop:10}} onClick={spin} disabled={spinning||bet<=0||bet>balance}>{spinning?"Spinning…":"Spin 🎰"}</button></>}
       <ResultBanner result={result}/>
+      <ErrorNotice error={err}/>
     </div>
   </div>);
 }
 
-function AtmModal({user,onClose,onConfirm}){
+function AtmModal({user,onClose,onConfirm,busy,error}){
   return (<div role="dialog" aria-modal="true" aria-labelledby="atm-title" style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:100}}>
     <div style={{...S.panel,maxWidth:360,textAlign:"center"}}>
       <div style={{fontSize:40}} aria-hidden="true">🏧</div>
       <div id="atm-title" style={{color:C.gold,fontSize:19,fontWeight:700,margin:"10px 0"}}>Emergency ATM</div>
       <div style={{color:C.muted,fontSize:13,marginBottom:12}}>Running low? No judgment — grab ${ATM_AMOUNT} and get back in the game.</div>
       <div style={{color:C.text,fontSize:13,marginBottom:18}}>Your balance: <b>${user.balance.toFixed(2)}</b> → <b>${(user.balance+ATM_AMOUNT).toFixed(2)}</b></div>
-      <div style={{display:"flex",gap:10,justifyContent:"center"}}><button style={S.btn("gold")} onClick={onConfirm} autoFocus>Take ${ATM_AMOUNT}</button><button style={S.btn("ghost")} onClick={onClose}>Cancel</button></div>
+      <div style={{display:"flex",gap:10,justifyContent:"center"}}><button style={S.btn("gold")} onClick={onConfirm} autoFocus disabled={busy}>{busy?"…":`Take $${ATM_AMOUNT}`}</button><button style={S.btn("ghost")} onClick={onClose} disabled={busy}>Cancel</button></div>
+      <ErrorNotice error={error}/>
     </div>
   </div>);
 }
@@ -482,20 +451,61 @@ export default function App(){
   const [screen,setScreen]=useState("auth");
   const [game,setGame]=useState(null);
   const [showAtm,setShowAtm]=useState(false);
+  const [atmBusy,setAtmBusy]=useState(false);
+  const [atmError,setAtmError]=useState(null);
+  const [config,setConfig]=useState(null);
+  const [booting,setBooting]=useState(true);
+
+  // On load: fetch public config and, if a token is cached, restore the session.
+  useEffect(()=>{
+    let alive=true;
+    (async()=>{
+      try{const cfg=await api.getConfig();if(alive)setConfig(cfg);}catch{/* games will show a notice */}
+      if(api.getToken()){
+        try{const {user:me}=await api.fetchMe();if(alive){setUser(me);setScreen("lobby");}}
+        catch{api.clearToken();}
+      }
+      if(alive)setBooting(false);
+    })();
+    return()=>{alive=false;};
+  },[]);
+
   function handleLogin(u){setUser(u);setScreen("lobby");}
-  function handleLogout(){setUser(null);setScreen("auth");setGame(null);}
-  async function handleUpdate(u){setUser({...u});await saveUser(u.email,u);}
-  async function handleAtm(){const updated={...user,balance:user.balance+ATM_AMOUNT,lastAtm:Date.now()};await handleUpdate(updated);setShowAtm(false);}
-  const gameProps={user,onUpdate:handleUpdate,onAtm:()=>setShowAtm(true),onBack:()=>{setGame(null);setScreen("lobby");}};
+  async function handleLogout(){await api.logout();setUser(null);setScreen("auth");setGame(null);}
+  // Server already persisted the authoritative balance; this just syncs UI state.
+  function handleUpdate(u){setUser({...u});}
+  // 401 → session is gone (e.g. server restart). Drop to the login screen.
+  function handleAuthError(){api.clearToken();setUser(null);setGame(null);setScreen("auth");}
+  async function handleAtm(){
+    setAtmBusy(true);setAtmError(null);
+    try{
+      const r=await api.atm();
+      setUser(u=>({...u,balance:r.balance,lastAtm:r.lastAtm}));
+      setShowAtm(false);
+    }catch(e){
+      if(e.status===401){handleAuthError();return;}
+      if(e.status===429&&e.data?.remainingMs!=null){
+        const mins=Math.ceil(e.data.remainingMs/60000);
+        setAtmError(`ATM on cooldown — try again in ${mins} minute${mins===1?"":"s"}.`);
+      }else setAtmError(e.message);
+    }finally{setAtmBusy(false);}
+  }
+
+  const gameProps={user,onUpdate:handleUpdate,onAtm:()=>{setAtmError(null);setShowAtm(true);},onBack:()=>{setGame(null);setScreen("lobby");},onError:handleAuthError};
+
+  if(booting)return (<><style>{GLOBAL_CSS}</style><div style={{...S.app,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted}}>Loading the casino…</div></>);
+
+  const configReady=!!config;
   return (<>
     <style>{GLOBAL_CSS}</style>
-    {showAtm&&user&&<AtmModal user={user} onClose={()=>setShowAtm(false)} onConfirm={handleAtm}/>}
+    {showAtm&&user&&<AtmModal user={user} onClose={()=>setShowAtm(false)} onConfirm={handleAtm} busy={atmBusy} error={atmError}/>}
     {screen==="auth"&&<AuthScreen onLogin={handleLogin}/>}
-    {screen==="lobby"&&user&&<Lobby user={user} onGame={id=>{setGame(id);setScreen("game");}} onAtm={()=>setShowAtm(true)} onLogout={handleLogout}/>}
-    {screen==="game"&&user&&game==="poker"&&<PokerGame {...gameProps}/>}
-    {screen==="game"&&user&&game==="roulette"&&<RouletteGame {...gameProps}/>}
-    {screen==="game"&&user&&game==="craps"&&<CrapsGame {...gameProps}/>}
-    {screen==="game"&&user&&game==="sicbo"&&<SicBoGame {...gameProps}/>}
-    {screen==="game"&&user&&(game==="slots1"||game==="slots2"||game==="slots3")&&<SlotMachine {...gameProps} config={SLOT_CONFIGS[game]}/>}
+    {screen==="lobby"&&user&&<Lobby user={user} onGame={id=>{setGame(id);setScreen("game");}} onAtm={()=>{setAtmError(null);setShowAtm(true);}} onLogout={handleLogout}/>}
+    {screen==="game"&&user&&!configReady&&<div style={{...S.app,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted}}>Loading game…</div>}
+    {screen==="game"&&user&&configReady&&game==="poker"&&<PokerGame {...gameProps}/>}
+    {screen==="game"&&user&&configReady&&game==="roulette"&&<RouletteGame {...gameProps} config={config}/>}
+    {screen==="game"&&user&&configReady&&game==="craps"&&<CrapsGame {...gameProps}/>}
+    {screen==="game"&&user&&configReady&&game==="sicbo"&&<SicBoGame {...gameProps} config={config}/>}
+    {screen==="game"&&user&&configReady&&(game==="slots1"||game==="slots2"||game==="slots3")&&<SlotMachine {...gameProps} gameId={game} config={config.slots[game]}/>}
   </>);
 }

@@ -14,6 +14,7 @@ import {
   makeDeck, shuffle, bestOf7, compareTB, publicConfig,
   SLOT_CONFIGS, ROULETTE_BETS, SIC_BO_BETS,
 } from "./games.js";
+import { sendLoginCode, mailerConfigured } from "./mailer.js";
 
 const PORT = process.env.PORT || 3001;
 const DB_PATH = process.env.CASINO_DB || "./casino.db";
@@ -23,6 +24,12 @@ const ATM_COOLDOWN_MS = 5 * 60 * 1000;
 const MIN_BET = 1;
 const MAX_BET = 500;          // per single-stake game (slots, craps, poker)
 const MAX_TOTAL_BET = 5000;   // total across a multi-bet round (roulette, sic bo)
+const CODE_TTL_MS = 10 * 60 * 1000;   // sign-in code validity window
+const MAX_CODE_ATTEMPTS = 5;          // wrong guesses before a code is burned
+// Dev convenience ONLY: when no SMTP is configured AND this flag is set, the
+// code is returned in the request response so local dev needs no mail server.
+// Never enable in production.
+const DEV_ECHO = process.env.AUTH_DEV_ECHO === "1" && !mailerConfigured() && process.env.NODE_ENV !== "production";
 
 // ---- DB ------------------------------------------------------------------
 const db = new Database(DB_PATH);
@@ -39,6 +46,12 @@ db.exec(`
     email   TEXT NOT NULL,
     created INTEGER NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS login_codes (
+    email     TEXT PRIMARY KEY,
+    code_hash TEXT NOT NULL,
+    expires   INTEGER NOT NULL,
+    attempts  INTEGER NOT NULL DEFAULT 0
+  );
 `);
 
 const q = {
@@ -49,6 +62,11 @@ const q = {
   insertSession: db.prepare("INSERT INTO sessions (token, email, created) VALUES (?, ?, ?)"),
   getSession: db.prepare("SELECT email FROM sessions WHERE token = ?"),
   deleteSession: db.prepare("DELETE FROM sessions WHERE token = ?"),
+  upsertCode: db.prepare(`INSERT INTO login_codes (email, code_hash, expires, attempts) VALUES (?, ?, ?, 0)
+    ON CONFLICT(email) DO UPDATE SET code_hash = excluded.code_hash, expires = excluded.expires, attempts = 0`),
+  getCode: db.prepare("SELECT code_hash AS codeHash, expires, attempts FROM login_codes WHERE email = ?"),
+  bumpCodeAttempts: db.prepare("UPDATE login_codes SET attempts = attempts + 1 WHERE email = ?"),
+  deleteCode: db.prepare("DELETE FROM login_codes WHERE email = ?"),
 };
 
 // Per-user in-progress hand state for the stateful games (craps point, poker
@@ -70,9 +88,30 @@ const betLimiter = rateLimit({
   message: { error: "Too many requests — slow down." },
 });
 
+// Tighter limit on the auth endpoints to blunt code-guessing / spam.
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many sign-in attempts — wait a minute and retry." },
+});
+
 // ---- Helpers -------------------------------------------------------------
 function newToken() {
   return crypto.randomBytes(24).toString("hex");
+}
+// 6-digit numeric code, zero-padded, from a CSPRNG.
+function newLoginCode() {
+  return String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+}
+// Codes are stored hashed (salted by email), never in plaintext.
+function hashCode(email, code) {
+  return crypto.createHash("sha256").update(`${email}:${code}`).digest("hex");
+}
+function safeEqualHex(a, b) {
+  const ba = Buffer.from(a, "hex"); const bb = Buffer.from(b, "hex");
+  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
 }
 function publicUser(u) {
   return { email: u.email, balance: u.balance, lastAtm: u.lastAtm, created: u.created };
@@ -117,9 +156,48 @@ const ROULETTE_IDS = new Set(ROULETTE_BETS.map((b) => b.id));
 const SICBO_IDS = new Set(SIC_BO_BETS.map((b) => b.id));
 
 // ---- Auth / account ------------------------------------------------------
-app.post("/api/login", (req, res) => {
-  const email = String(req.body?.email || "").trim().toLowerCase();
-  if (!email.includes("@")) return res.status(400).json({ error: "Enter a valid email address." });
+function normalizeEmail(raw) {
+  return String(raw || "").trim().toLowerCase();
+}
+// Conservative shape check: one @, no whitespace/control chars (also guards the
+// address against CRLF header-injection before it reaches the mailer).
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function validEmail(email) {
+  return email.length <= 254 && EMAIL_RE.test(email);
+}
+
+// Step 1: email a one-time code. No token is minted here, so simply knowing an
+// email no longer grants a session — the requester must prove they can read the
+// inbox. Response is uniform whether or not the account exists (no enumeration).
+app.post("/api/login/request", authLimiter, async (req, res) => {
+  const email = normalizeEmail(req.body?.email);
+  if (!validEmail(email)) return res.status(400).json({ error: "Enter a valid email address." });
+  const code = newLoginCode();
+  q.upsertCode.run(email, hashCode(email, code), Date.now() + CODE_TTL_MS);
+  try {
+    await sendLoginCode(email, code);
+  } catch (e) {
+    console.error("[login] failed to send code:", e.message);
+    return res.status(502).json({ error: "Couldn't send the sign-in code. Try again shortly." });
+  }
+  res.json({ ok: true, ...(DEV_ECHO ? { devCode: code } : {}) });
+});
+
+// Step 2: verify the code, then mint the session (and create the account on
+// first successful sign-in). Codes are single-use, time-limited, attempt-capped.
+app.post("/api/login/verify", authLimiter, (req, res) => {
+  const email = normalizeEmail(req.body?.email);
+  const code = String(req.body?.code || "").trim();
+  if (!validEmail(email) || !/^\d{6}$/.test(code)) return res.status(400).json({ error: "Enter the 6-digit code from your email." });
+  const row = q.getCode.get(email);
+  if (!row) return res.status(400).json({ error: "Request a new code." });
+  if (Date.now() > row.expires) { q.deleteCode.run(email); return res.status(400).json({ error: "That code expired. Request a new one." }); }
+  if (row.attempts >= MAX_CODE_ATTEMPTS) { q.deleteCode.run(email); return res.status(429).json({ error: "Too many wrong codes. Request a new one." }); }
+  if (!safeEqualHex(row.codeHash, hashCode(email, code))) {
+    q.bumpCodeAttempts.run(email);
+    return res.status(400).json({ error: "Incorrect code." });
+  }
+  q.deleteCode.run(email);
   let user = q.getUser.get(email);
   let isNew = false;
   if (!user) {

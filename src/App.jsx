@@ -99,33 +99,57 @@ function GameHeader({title,balance,onBack,onAtm}){
 }
 
 function AuthScreen({onLogin}){
+  const [step,setStep]=useState("email"); // email | code
   const [email,setEmail]=useState("");
+  const [code,setCode]=useState("");
   const [loading,setLoading]=useState(false);
   const [msg,setMsg]=useState("");
-  async function handleEnter(){
+  async function sendCode(){
     const e=email.trim().toLowerCase();
     if(!e.includes("@")){setMsg("Enter a valid email address.");return;}
     setLoading(true);setMsg("");
     try{
-      const {user,isNew,startingBalance}=await api.login(e);
+      const r=await api.requestCode(e);
+      setEmail(e);setStep("code");setCode("");
+      // Dev fallback: if the server isn't wired to SMTP it echoes the code.
+      setMsg(r.devCode?`Dev mode — your code is ${r.devCode}`:`We emailed a 6-digit code to ${e}.`);
+    }catch(err){
+      setMsg(err.message||"Couldn't send the code. Try again.");
+    }finally{setLoading(false);}
+  }
+  async function verify(){
+    const c=code.trim();
+    if(!/^\d{6}$/.test(c)){setMsg("Enter the 6-digit code from your email.");return;}
+    setLoading(true);setMsg("");
+    try{
+      const {user,isNew,startingBalance}=await api.verifyCode(email,c);
       if(isNew)setMsg(`Welcome! Your account starts with $${startingBalance}.`);
       setTimeout(()=>onLogin(user),isNew?500:200);
     }catch(err){
-      setMsg(err.message||"Couldn't sign in. Try again.");
-    }finally{
-      setLoading(false);
-    }
+      setMsg(err.message||"Couldn't verify the code. Try again.");
+    }finally{setLoading(false);}
   }
   return (<div style={{...S.app,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
     <div style={{...S.panel,maxWidth:420,textAlign:"center"}}>
       <div style={S.neonTitle} role="heading" aria-level="1">🎰 LUCKY FELT</div>
       <div style={S.subtitle}>CASINO & GAMING CLUB</div>
-      <div style={{margin:"28px 0 8px",color:C.muted,fontSize:12,letterSpacing:"0.15em"}}>ENTER YOUR EMAIL TO PLAY</div>
-      <label htmlFor="email-input" style={{position:"absolute",width:1,height:1,overflow:"hidden",clip:"rect(0,0,0,0)"}}>Email address</label>
-      <input id="email-input" style={S.input} type="email" placeholder="you@example.com" autoComplete="email" autoFocus value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleEnter()}/>
-      <button style={{...S.btn("gold"),marginTop:12,width:"100%",padding:"12px",fontSize:15}} onClick={handleEnter} disabled={loading}>{loading?"Checking…":"Enter the Casino"}</button>
-      {msg&&<div role="status" style={{marginTop:10,color:C.gold,fontSize:12}}>{msg}</div>}
-      <div style={{marginTop:16,color:C.mutedDim,fontSize:11}}>No password needed — just your email.</div>
+      {step==="email"?<>
+        <div style={{margin:"28px 0 8px",color:C.muted,fontSize:12,letterSpacing:"0.15em"}}>ENTER YOUR EMAIL TO PLAY</div>
+        <label htmlFor="email-input" style={{position:"absolute",width:1,height:1,overflow:"hidden",clip:"rect(0,0,0,0)"}}>Email address</label>
+        <input id="email-input" style={S.input} type="email" placeholder="you@example.com" autoComplete="email" autoFocus value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendCode()}/>
+        <button style={{...S.btn("gold"),marginTop:12,width:"100%",padding:"12px",fontSize:15}} onClick={sendCode} disabled={loading}>{loading?"Sending…":"Email me a code"}</button>
+        <div style={{marginTop:16,color:C.mutedDim,fontSize:11}}>No password — we email you a one-time sign-in code.</div>
+      </>:<>
+        <div style={{margin:"28px 0 8px",color:C.muted,fontSize:12,letterSpacing:"0.15em"}}>ENTER YOUR 6-DIGIT CODE</div>
+        <label htmlFor="code-input" style={{position:"absolute",width:1,height:1,overflow:"hidden",clip:"rect(0,0,0,0)"}}>Sign-in code</label>
+        <input id="code-input" style={{...S.input,textAlign:"center",letterSpacing:"0.4em",fontSize:22}} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" autoFocus value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,""))} onKeyDown={e=>e.key==="Enter"&&verify()}/>
+        <button style={{...S.btn("gold"),marginTop:12,width:"100%",padding:"12px",fontSize:15}} onClick={verify} disabled={loading}>{loading?"Verifying…":"Enter the Casino"}</button>
+        <div style={{display:"flex",gap:10,justifyContent:"center",marginTop:10}}>
+          <button style={{...S.btn("ghost"),fontSize:11}} onClick={()=>{setStep("email");setMsg("");setCode("");}} disabled={loading}>← Change email</button>
+          <button style={{...S.btn("ghost"),fontSize:11}} onClick={sendCode} disabled={loading}>Resend code</button>
+        </div>
+      </>}
+      {msg&&<div role="status" style={{marginTop:12,color:C.gold,fontSize:12}}>{msg}</div>}
     </div>
   </div>);
 }

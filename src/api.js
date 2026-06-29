@@ -44,8 +44,12 @@ async function req(path, { method = "GET", body, auth = true } = {}) {
 }
 
 // ---- Auth / account ----
-export async function login(email) {
-  const d = await req("/login", { method: "POST", body: { email }, auth: false });
+// Two-step sign-in: request a one-time code by email, then verify it for a token.
+export function requestCode(email) {
+  return req("/login/request", { method: "POST", body: { email }, auth: false });
+}
+export async function verifyCode(email, code) {
+  const d = await req("/login/verify", { method: "POST", body: { email, code }, auth: false });
   setToken(d.token);
   return d;
 }

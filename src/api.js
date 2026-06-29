@@ -64,6 +64,7 @@ export function betSicbo(bets) { return req("/bet/sicbo", { method: "POST", body
 export function crapsRoll(bet, type) { return req("/bet/craps", { method: "POST", body: { bet, type } }); }
 
 // ---- Poker (stateful) ----
+export function pokerState() { return req("/poker/state"); }
 export function pokerDeal(bet) { return req("/poker/deal", { method: "POST", body: { bet } }); }
 export function pokerAdvance() { return req("/poker/advance", { method: "POST" }); }
 export function pokerShowdown() { return req("/poker/showdown", { method: "POST" }); }

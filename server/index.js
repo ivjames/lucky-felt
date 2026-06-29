@@ -242,6 +242,10 @@ app.post("/api/bet/craps", betLimiter, auth, (req, res) => {
 // ---- Poker (stateful; dealer cards stay server-side until showdown) -------
 app.post("/api/poker/deal", betLimiter, auth, (req, res) => {
   const u = req.user;
+  // A hand already in progress (e.g. the player reloaded mid-hand) must not be
+  // clobbered — its stake is already deducted. Reject and let the client resume
+  // via GET /api/poker/state instead of silently forfeiting the live pot.
+  if (pokerState.has(u.email)) return res.status(409).json({ error: "Finish your hand in progress first.", active: true });
   const { bet } = req.body || {};
   const err = validateBet(bet, u.balance);
   if (err) return res.status(400).json({ error: err });
@@ -257,6 +261,14 @@ app.post("/api/poker/deal", betLimiter, auth, (req, res) => {
   const balance = u.balance - bet;
   q.setBalance.run(balance, u.email);
   res.json({ balance, player: state.player, pot: state.pot, phase: "deal" });
+});
+
+// Lets a reconnecting client recover a hand it was in the middle of. Dealer
+// hole cards stay hidden — same rule as deal.
+app.get("/api/poker/state", auth, (req, res) => {
+  const state = pokerState.get(req.user.email);
+  if (!state) return res.json({ active: false });
+  res.json({ active: true, player: state.player, community: state.community, pot: state.pot, phase: state.phase });
 });
 
 app.post("/api/poker/advance", auth, (req, res) => {

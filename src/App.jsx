@@ -191,6 +191,17 @@ function PokerGame({user,onUpdate,onBack,onAtm,onError}){
   const broke=balance<1;
 
   function fail(e){ if(e.status===401){onError(e);return;} setErr(e.message); }
+  function resume(s){setPlayer(s.player);setCommunity(s.community);setPot(s.pot);setPhase(s.phase);setDealer([]);setRevealed(false);setResult(null);}
+
+  // Recover an in-progress hand if the player reloaded mid-hand, so its already-
+  // deducted stake isn't stranded server-side.
+  useEffect(()=>{
+    let alive=true;
+    (async()=>{
+      try{const s=await api.pokerState();if(alive&&s.active)resume(s);}catch{/* start fresh */}
+    })();
+    return()=>{alive=false;};
+  },[]);
 
   async function deal(){
     if(busy||bet<=0||bet>balance)return;
@@ -200,7 +211,11 @@ function PokerGame({user,onUpdate,onBack,onAtm,onError}){
       setPlayer(r.player);setDealer([]);setCommunity([]);setRevealed(false);
       setPot(r.pot);setBalance(r.balance);setResult(null);setPhase("deal");
       onUpdate({...user,balance:r.balance});
-    }catch(e){fail(e);}finally{setBusy(false);}
+    }catch(e){
+      // Server says a hand is already live — pull it in rather than erroring out.
+      if(e.status===409){try{const s=await api.pokerState();if(s.active){resume(s);setErr("Resumed your hand in progress.");}}catch{fail(e);}}
+      else fail(e);
+    }finally{setBusy(false);}
   }
   async function advance(){
     if(busy)return;

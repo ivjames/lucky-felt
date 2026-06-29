@@ -102,6 +102,35 @@ Delivery is provider-agnostic via [nodemailer](https://nodemailer.com). Configur
 
 With nothing configured the code is logged to the backend console (dev fallback).
 
+#### Sending with Resend (production: `casino.lab980.com`)
+
+[Resend](https://resend.com) works with the SMTP config above — no code changes needed. Send from a subdomain (`casino.lab980.com`) so the casino's sending reputation stays isolated from the root domain.
+
+1. **Resend → Add Domain →** `casino.lab980.com` (choose the region nearest the droplet).
+2. Add the DNS records Resend generates at `lab980.com`'s DNS host. They sit on the subdomain — copy the exact values from the dashboard (DKIM is a unique per-domain key):
+
+   | Type | Name | Value |
+   |---|---|---|
+   | MX | `send.casino.lab980.com` | SES feedback host shown by Resend (priority 10) |
+   | TXT | `send.casino.lab980.com` | `v=spf1 include:amazonses.com ~all` |
+   | TXT | `resend._domainkey.casino.lab980.com` | DKIM key shown by Resend |
+   | TXT | `_dmarc.casino.lab980.com` | `v=DMARC1; p=none;` (optional) |
+
+   > If your DNS host auto-appends the zone, enter names relative (`send.casino`, `resend._domainkey.casino`) so you don't end up with a doubled `...lab980.com.lab980.com`.
+
+3. Once verified, set the SMTP env on the `casino-api` process (the `SMTP_PASS` is your Resend API key):
+
+   ```bash
+   SMTP_HOST=smtp.resend.com
+   SMTP_PORT=465
+   SMTP_SECURE=true            # set for 465; omit/false for 587
+   SMTP_USER=resend            # literally the word "resend"
+   SMTP_PASS=re_xxxxxxxx       # Resend API key
+   MAIL_FROM='Lucky Felt Casino <no-reply@casino.lab980.com>'
+   ```
+
+   `MAIL_FROM` must be an address on the verified domain or Resend rejects the send.
+
 ### API endpoints
 
 | Endpoint | Auth | Purpose |

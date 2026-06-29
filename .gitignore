@@ -1,3 +1,8 @@
 node_modules
 dist
 .env
+
+# local SQLite database (WAL/SHM sidecars too)
+*.db
+*.db-shm
+*.db-wal

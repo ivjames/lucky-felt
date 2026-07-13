@@ -150,6 +150,9 @@ With nothing configured the code is logged to the backend console (dev fallback)
 
 ## Backend deploy (droplet)
 
+The API code lives in this repo under `server/` (its own `package.json`); on the
+droplet it's checked out at `/var/www/casino-api`.
+
 ```bash
 # On the droplet, where the API lives at /var/www/casino-api (PM2: "casino-api")
 cd /var/www/casino-api
@@ -157,6 +160,17 @@ npm install
 CASINO_DB=/var/data/casino.db PORT=3001 \
   SMTP_HOST=smtp.example.com SMTP_USER=... SMTP_PASS=... MAIL_FROM='Lucky Felt <no-reply@casino.lab980.com>' \
   pm2 restart casino-api   # or `pm2 start index.js --name casino-api`
+pm2 save                   # snapshot the process list to the dump
+```
+
+**One time per droplet — install pm2's boot hook, or `casino-api` won't come
+back after a reboot.** `pm2 save` only writes the dump; without the systemd hook
+nothing replays it at boot, and the static `dist/` frontend will keep loading
+while every `/api/` call 502s.
+
+```bash
+pm2 startup systemd -u root --hp /root   # run the sudo command it prints, once
+systemctl is-enabled pm2-root            # verify -> should print `enabled`
 ```
 
 nginx serves the built `dist/` and proxies `/api/ -> localhost:3001`. Set `CASINO_DB` to the persistent DB path so it survives restarts, and configure the SMTP vars (see [Email](#email-sign-in-codes)) so sign-in codes actually get delivered.

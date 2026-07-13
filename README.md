@@ -150,8 +150,11 @@ With nothing configured the code is logged to the backend console (dev fallback)
 
 ## Backend deploy (droplet)
 
-The API code lives in this repo under `server/` (its own `package.json`); on the
-droplet it's checked out at `/var/www/casino-api`.
+The API is the repo's `server/` directory — its own `index.js` + `server/package.json`
+(distinct from the Vite **frontend** `package.json` at the repo root). On the droplet,
+**only `server/`'s contents** are deployed to `/var/www/casino-api`, so the `index.js`
+and `package.json` there are the API's and the commands below run from that directory.
+(Deploying a full repo clone instead? Then the entrypoint is `/var/www/casino-api/server`.)
 
 ```bash
 # On the droplet, where the API lives at /var/www/casino-api (PM2: "casino-api")

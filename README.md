@@ -4,59 +4,6 @@ A friendly browser casino. Texas Hold'em, Roulette, Craps, Sic Bo, and three slo
 
 Outcomes and balances are **server-authoritative**: the React client sends *actions* (which game, how much, which bets) and the Express/SQLite backend in [`server/`](server/) owns the RNG, the payout tables, and the money. See [Security model](#security-model) below.
 
-## Deploy to DigitalOcean App Platform (free static site)
-
-### Option A — DO App Platform UI (easiest)
-
-1. Push this repo to GitHub
-2. Go to https://cloud.digitalocean.com/apps → New App
-3. Connect your GitHub repo
-4. DO auto-detects Vite. Confirm:
-   - **Build command:** `npm run build`
-   - **Output dir:** `dist`
-5. Choose the **free static site** tier
-6. Deploy — done. You get a `*.ondigitalocean.app` URL.
-
-The `.do/app.yaml` in this repo is picked up automatically if you use the DO CLI instead.
-
-### Option B — DO CLI
-
-```bash
-brew install doctl          # or apt install doctl
-doctl auth init
-doctl apps create --spec .do/app.yaml
-```
-
-### Option C — Droplet fallback
-
-If you want a custom subdomain on an existing Droplet:
-
-```bash
-# On the droplet
-apt install nginx nodejs npm -y
-npm install -g serve
-
-cd /var/www
-git clone <your-repo> lucky-felt
-cd lucky-felt && npm install && npm run build
-
-# Nginx config at /etc/nginx/sites-available/casino
-server {
-    listen 80;
-    server_name casino.yourdomain.com;
-    root /var/www/lucky-felt/dist;
-    index index.html;
-    location / { try_files $uri $uri/ /index.html; }
-}
-
-ln -s /etc/nginx/sites-available/casino /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
-
-# SSL (optional but recommended)
-apt install certbot python3-certbot-nginx -y
-certbot --nginx -d casino.yourdomain.com
-```
-
 ## Local dev
 
 The app is two processes: the Vite frontend and the API backend. Run both.
@@ -72,7 +19,7 @@ npm install
 npm run dev            # Vite proxies /api -> localhost:3001 (see vite.config.js)
 ```
 
-`npm run build` produces the static frontend in `dist/`. The backend is deployed separately (see below).
+`npm run build` produces the static frontend in `dist/`. The backend is deployed separately (see [Deploy](#deploy) below).
 
 **Sign-in needs an email code.** With no SMTP configured the backend logs the code to its console; set `AUTH_DEV_ECHO=1` (dev only) and the request response/login screen will show the code directly so you don't need a mail server locally.
 
@@ -85,7 +32,8 @@ The browser is treated as untrusted. It never computes an outcome or writes a ba
 - **Every bet is validated** server-side: positive integer, within table limits, `<= balance`. Bad bets are rejected.
 - **The ATM cooldown is enforced server-side** (`POST /api/atm` returns `429` while on cooldown).
 - **Sign-in proves inbox ownership.** A one-time 6-digit code is emailed; only verifying it mints a session token. Codes are stored hashed, expire in 10 minutes, are single-use, and are capped at 5 wrong attempts. Knowing an email is no longer enough to act as that user.
-- **Sessions use bearer tokens**, not raw email in the body. Dealer hole cards in poker stay on the server until showdown.
+- **Sessions use bearer tokens**, not raw email in the body. Sessions expire 30 days after sign-in. Dealer hole cards in poker stay on the server until showdown.
+- **In-progress hands are persistent.** Poker and craps hands are stored in a `game_state` table in SQLite, so a server restart does not forfeit a live stake.
 - **Auth and bet endpoints are rate-limited** (`express-rate-limit`).
 
 ### Email (sign-in codes)
@@ -135,6 +83,7 @@ With nothing configured the code is logged to the backend console (dev fallback)
 
 | Endpoint | Auth | Purpose |
 |---|---|---|
+| `GET /api/health` | — | liveness check, returns `{ok:true}` |
 | `POST /api/login/request` `{email}` | — | email a one-time sign-in code |
 | `POST /api/login/verify` `{email,code}` | — | verify code, returns `{token, user}` |
 | `POST /api/logout` | token | invalidate session |
@@ -148,37 +97,86 @@ With nothing configured the code is logged to the backend console (dev fallback)
 | `GET /api/poker/state` | token | resume an in-progress hand (dealer hidden) |
 | `POST /api/poker/{deal,advance,showdown,fold}` | token | stateful hand; dealer hidden until showdown |
 
-## Backend deploy (droplet)
+## Deploy
 
-The API is the repo's `server/` directory — its own `index.js` + `server/package.json`
-(distinct from the Vite **frontend** `package.json` at the repo root). On the droplet,
-**only `server/`'s contents** are deployed to `/var/www/casino-api`, so the `index.js`
-and `package.json` there are the API's and the commands below run from that directory.
-(Deploying a full repo clone instead? Then the entrypoint is `/var/www/casino-api/server`.)
+Production is a Droplet running nginx (serves `dist/`, proxies `/api/`) and pm2 (keeps the API process alive). DigitalOcean App Platform's free static tier does not fit this app: it has no process for the Express API, and App Platform's container disk is ephemeral, so the SQLite database would be wiped on every deploy.
+
+### Frontend: build and serve with nginx
 
 ```bash
-# On the droplet, where the API lives at /var/www/casino-api (PM2: "casino-api")
+# On the droplet
+apt install nginx nodejs npm -y
+cd /var/www
+git clone <your-repo> lucky-felt
+cd lucky-felt && npm install && npm run build
+```
+
+nginx config at `/etc/nginx/sites-available/casino`:
+
+```nginx
+server {
+    listen 80;
+    server_name casino.yourdomain.com;
+
+    root /var/www/lucky-felt/dist;
+    index index.html;
+
+    # Single-page app: unknown paths fall back to index.html
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API. The forwarded headers matter: the server runs behind
+    # `trust proxy` and keys its rate limits on the client IP.
+    location /api/ {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+```bash
+ln -s /etc/nginx/sites-available/casino /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+
+# HTTPS (recommended)
+apt install certbot python3-certbot-nginx -y
+certbot --nginx -d casino.yourdomain.com
+```
+
+### Backend: run the API with pm2
+
+The API is the repo's `server/` directory, with its own `index.js` and `server/package.json` (distinct from the Vite frontend `package.json` at the repo root). On the droplet, **only `server/`'s contents** are deployed to `/var/www/casino-api`, so the commands below run from that directory. (Deploying a full repo clone instead? Then the entrypoint is `/var/www/lucky-felt/server`.)
+
+```bash
 cd /var/www/casino-api
 npm install
 CASINO_DB=/var/data/casino.db PORT=3001 \
-  SMTP_HOST=smtp.example.com SMTP_USER=... SMTP_PASS=... MAIL_FROM='Lucky Felt <no-reply@casino.lab980.com>' \
+  SMTP_HOST=smtp.resend.com SMTP_PORT=465 SMTP_SECURE=true \
+  SMTP_USER=resend SMTP_PASS=re_xxxxxxxx \
+  MAIL_FROM='Lucky Felt Casino <no-reply@casino.lab980.com>' \
   pm2 restart casino-api   # or `pm2 start index.js --name casino-api`
 pm2 save                   # snapshot the process list to the dump
 ```
 
-**One time per droplet — install pm2's boot hook, or `casino-api` won't come
-back after a reboot.** `pm2 save` only writes the dump; without the systemd hook
-nothing replays it at boot, and the static `dist/` frontend will keep loading
-while every `/api/` call 502s.
+Set `CASINO_DB` to a path outside the deploy directory so the database survives redeploys, and configure the SMTP vars (see [Email](#email-sign-in-codes)) so sign-in codes are delivered.
+
+**One time per droplet — install pm2's boot hook, or `casino-api` won't come back after a reboot.** `pm2 save` only writes the dump; without the systemd hook nothing replays it at boot, and the static `dist/` frontend will keep loading while every `/api/` call 502s.
 
 ```bash
 pm2 startup systemd -u root --hp /root   # run the sudo command it prints, once
 systemctl is-enabled pm2-root            # verify -> should print `enabled`
 ```
 
-nginx serves the built `dist/` and proxies `/api/ -> localhost:3001`. Set `CASINO_DB` to the persistent DB path so it survives restarts, and configure the SMTP vars (see [Email](#email-sign-in-codes)) so sign-in codes actually get delivered.
+Health check: `curl -s https://casino.yourdomain.com/api/health` should return `{"ok":true}`.
 
 ## Notes
 
 - Accounts and balances live in **SQLite on the server** (cross-device), not localStorage. The client only caches a session token.
+- **Slot symbols and card suits** are sent from the server as plain identifiers and rendered as SVG on the client.
+- **Payout tables** are derived from a single rule list in the backend ([`server/games.js`](server/games.js)); the server enforces all rules and computes payouts — the client cannot modify them.
 - No real money involved.

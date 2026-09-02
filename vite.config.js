@@ -8,7 +8,7 @@ export default defineConfig({
   // origin (matches the nginx `/api/ -> :3001` proxy in production).
   server: {
     proxy: {
-      "/api": "http://localhost:3001",
+      "/api": "http://127.0.0.1:3001",
     },
   },
 })

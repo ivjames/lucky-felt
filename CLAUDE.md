@@ -20,6 +20,9 @@ A **split app**, which is why the generic app template doesn't describe it:
 - API: `server/` is **copied** by `casino deploy` into `/var/www/casino-api`
   and run there by pm2 as `casino-api` (fork mode, `node index.js`) on
   `127.0.0.1:3001`. nginx proxies `/api/` to it.
+- The API binds `127.0.0.1` explicitly (`HOST` overrides). It once ran bound
+  to `::1` only behind a vhost proxying to `localhost`; see `DEPLOY.md` for
+  the one-time vhost pin.
 - State outside the checkout: `/var/www/casino-api/.env` and the SQLite file at
   `/var/data/casino.db`. Both survive deploys.
 - Stub is `casino`, repo is `lucky-felt`: a stub/repo mismatch, recorded in

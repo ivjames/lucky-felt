@@ -447,8 +447,13 @@ app.post("/api/poker/fold", auth, (req, res) => {
   res.json({ balance: u.balance, delta: -state.pot });
 });
 
-app.listen(PORT, () => {
-  console.log(`Lucky Felt API (server-authoritative) listening on :${PORT}`);
+// Bind loopback IPv4 explicitly. A bare listen(PORT) binds every interface,
+// and listen(PORT, "localhost") resolves to ::1 on a dual-stack box, which is
+// how this API once ran v6-only behind a vhost that happened to proxy to
+// `localhost`. nginx on the droplet proxies to 127.0.0.1:<port>; match it.
+const HOST = process.env.HOST || "127.0.0.1";
+app.listen(PORT, HOST, () => {
+  console.log(`Lucky Felt API (server-authoritative) listening on ${HOST}:${PORT}`);
 });
 
 export { app };

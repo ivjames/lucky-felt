@@ -16,6 +16,19 @@ One repo, two halves on the box. This is a split layout, not the plain
 State lives outside the checkout and survives deploys: the API's `.env` at
 `/var/www/casino-api/.env` and the SQLite database at `/var/data/casino.db`.
 
+The API binds **`127.0.0.1`** (override with `HOST` in `.env`), matching the
+vhost's `proxy_pass` below and every vhost `provision-site` writes.
+
+> **Before the first `casino deploy` on the current box, pin the vhost.** The
+> inspection recorded in lab980's `docs/admin-tool.md` (finding 7) found the
+> live `casino-api` bound to `[::1]:3001` only, with the vhost proxying to
+> `localhost`, which nginx happened to resolve to `::1`. The server now binds
+> `127.0.0.1`, so after the deploy nginx would reach it only by failing over
+> from `::1`. Change `proxy_pass http://localhost:3001` to
+> `proxy_pass http://127.0.0.1:3001` in the vhost, `nginx -t && systemctl
+> reload nginx`, then deploy. `casino status` reports which loopback family
+> answered.
+
 Port 3001 predates the droplet's 8060+ convention. Changing it means editing the
 vhost's `proxy_pass`, the `.env`, and `CASINO_PORT` together; leave it unless
 you're doing all three.
@@ -70,6 +83,7 @@ a deploy.
 | key | what it is |
 |---|---|
 | `PORT` | `3001` — must match the vhost's `proxy_pass` |
+| `HOST` | optional, default `127.0.0.1`. Leave unset. |
 | `CASINO_DB` | `/var/data/casino.db` — outside the API dir so deploys and redeploys can't touch it |
 | `NODE_ENV` | `production` — also hard-disables the dev code echo |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` | `smtp.resend.com` / `465` / `true` |

@@ -31,6 +31,13 @@ const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // sessions expire 30 days afte
 // code is returned in the request response so local dev needs no mail server.
 // Never enable in production.
 const DEV_ECHO = process.env.AUTH_DEV_ECHO === "1" && !mailerConfigured() && process.env.NODE_ENV !== "production";
+// Deliberate, temporary override for when email delivery is not working in
+// production: the code is returned in the response and shown on the page, and
+// a failing mailer no longer blocks sign-in. Anyone who can type an address
+// can sign in as it, so this is for a play-money site while SMTP is sorted
+// out, and nothing else. Remove the key from .env when email works.
+const SHOW_CODE = process.env.AUTH_SHOW_CODE === "1";
+if (SHOW_CODE) console.warn("[auth] AUTH_SHOW_CODE=1: sign-in codes are returned to the browser. Email ownership is NOT being verified.");
 
 // ---- DB ------------------------------------------------------------------
 const db = new Database(DB_PATH);
@@ -224,8 +231,9 @@ api.post("/login/request", authLimiter, async (req, res) => {
     await sendLoginCode(email, code);
   } catch (e) {
     console.error("[login] failed to send code:", e.message);
-    return res.status(502).json({ error: "Couldn't send the sign-in code. Try again shortly." });
+    if (!SHOW_CODE) return res.status(502).json({ error: "Couldn't send the sign-in code. Try again shortly." });
   }
+  if (SHOW_CODE) return res.json({ ok: true, devCode: code, shown: true });
   res.json({ ok: true, ...(DEV_ECHO ? { devCode: code } : {}) });
 });
 

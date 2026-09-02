@@ -113,6 +113,7 @@ a deploy.
 | `SMTP_USER` / `SMTP_PASS` | `resend` / the Resend API key |
 | `MAIL_FROM` | `'Lucky Felt Casino <no-reply@casino.lab980.com>'` — must be on the Resend-verified domain |
 | `AUTH_DEV_ECHO` | **never set in production.** Dev only: returns the sign-in code in the API response when no SMTP is configured. |
+| `AUTH_SHOW_CODE` | **temporary.** `1` returns the sign-in code to the browser and shows it on the page, and a failing mailer no longer blocks sign-in. Nobody's inbox is verified while set. Use only until SMTP works, then remove the line and `casino restart`. |
 
 If the process was originally started with env vars on the `pm2 start` command
 line rather than a `.env` file, those are still in the pm2 dump and survive

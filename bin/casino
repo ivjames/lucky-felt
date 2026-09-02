@@ -163,15 +163,18 @@ resolve_api_dir() {
   [ -n "${CASINO_API_DIR:-}" ] && return   # explicit override wins
   local sp; sp="$(pm2_script_path)"
   [ -n "$sp" ] || return
+  # Only an index.js tells us where the API lives. A wrapper (npm, a shell
+  # script, an ecosystem entry) says nothing about the directory, and copying
+  # server/ beside it would clobber whatever is there.
+  case "$(basename "$sp")" in
+    index.js) ;;
+    *) die "pm2 runs $APP as $sp, not an index.js, so the API directory can't be inferred. Set CASINO_API_DIR to the directory holding the API's index.js and re-run.";;
+  esac
   local d; d="$(dirname "$sp")"
   if [ "$(readlink -f "$d")" != "$(readlink -f "$API_DIR")" ]; then
     warn "pm2 runs $APP from $sp, not $API_DIR/index.js — using $d as the API dir (set CASINO_API_DIR to override)"
     API_DIR="$d"
   fi
-  case "$(basename "$sp")" in
-    index.js) ;;
-    *) warn "pm2's script for $APP is $(basename "$sp"), not index.js; deploy copies server/ next to it and restarts, but check that is what you want";;
-  esac
 }
 
 # Copy the tracked contents of server/ at HEAD into $API_DIR. `git archive`

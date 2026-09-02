@@ -23,9 +23,18 @@ export default function AuthScreen({ onLogin }) {
       const r = await api.requestCode(e);
       setEmail(e);
       setStep("code");
-      setCode("");
-      // Dev fallback: if the server isn't wired to SMTP it echoes the code.
-      setMsg(r.devCode ? `Dev mode — your code is ${r.devCode}` : `We emailed a 6-digit code to ${e}.`);
+      // The server returns the code itself when email delivery is off
+      // (AUTH_SHOW_CODE in production, AUTH_DEV_ECHO in local dev). Show it
+      // and pre-fill the field so sign-in is one more tap.
+      if (r.devCode) {
+        setCode(r.devCode);
+        setMsg(r.shown
+          ? `Email delivery is off right now, so here is your code: ${r.devCode}`
+          : `Dev mode — your code is ${r.devCode}`);
+      } else {
+        setCode("");
+        setMsg(`We emailed a 6-digit code to ${e}.`);
+      }
     } catch (err) {
       setMsg(err.message || "Couldn't send the code. Try again.");
     } finally {

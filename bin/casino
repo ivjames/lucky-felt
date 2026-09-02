@@ -74,6 +74,11 @@ USAGE
 # --update-env` carry it. Values with spaces (MAIL_FROM) must be quoted in the
 # file; see server/.env.example.
 load_env() {
+  # pm2 --update-env adds and changes variables but never removes one, so a
+  # key deleted from .env would live on in the process; and a value inherited
+  # from the calling shell must not stand in for it either. Set the one key
+  # whose absence must mean "off" to 0 first; .env may then override it.
+  export AUTH_SHOW_CODE=0
   if [ -f "$API_DIR/.env" ]; then
     set -a
     # shellcheck disable=SC1091

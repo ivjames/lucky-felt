@@ -60,7 +60,9 @@ Full runbook, `.env` keys, bring-up, and the vhost: `DEPLOY.md`.
   restart mid-hand doesn't forfeit a debited stake. Balance and state changes
   that must land together are wrapped in `db.transaction`.
 - **Sign-in is an emailed one-time code** via SMTP (Resend in production).
-  `AUTH_DEV_ECHO=1` returns the code in the API response for local dev only;
+  `AUTH_SHOW_CODE=1` shows the code on the page while email delivery is
+  broken (temporary, no inbox verification). `AUTH_DEV_ECHO=1` returns the
+  code in the API response for local dev only;
   the server refuses it when `NODE_ENV=production`.
 - **Two package.json files.** Root is the Vite frontend; `server/package.json`
   is the API. `npm run lint` at the root covers both.

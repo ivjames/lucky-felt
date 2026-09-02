@@ -49,8 +49,12 @@ export default function RouletteGame({ user, onUpdate, onBack, onAtm, onError, c
       setBalance(r.balance);
       const wins = r.wins;
       const color = colorOf(r.landed);
+      // A net-zero round can only happen here when at least one bet actually
+      // won (roulette has no bet that itself pushes) — a winning bet offset
+      // a losing one. That's a break-even round, not a push, so it shouldn't
+      // read like one even though the tone stays neutral either way.
       setResult({
-        label: r.delta > 0 ? "You win!" : r.delta === 0 ? "Bets returned" : "No win this spin",
+        label: r.delta > 0 ? "You win!" : r.delta === 0 ? (wins.length > 0 ? "Break even" : "Bets returned") : "No win this spin",
         won: r.delta > 0,
         delta: r.delta,
         detail: `Ball landed on ${r.landed} (${color})${wins.length ? " · hits: " + wins.join(", ") : ""}`,

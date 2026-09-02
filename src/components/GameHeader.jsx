@@ -2,7 +2,10 @@ import { AtmIcon, BackIcon } from "./icons/UiIcons";
 import "./GameHeader.css";
 
 export default function GameHeader({ title, balance, onBack, onAtm }) {
-  const canAtm = onAtm && balance < 5;
+  // Always show the shortcut when the game offers one — the modal itself
+  // enforces the cooldown, so gating it here on balance just hid the button
+  // exactly when a mid-cooldown player still wanted to check it.
+  const canAtm = !!onAtm;
   const shown = typeof balance === "number" ? balance.toFixed(2) : balance;
   return (
     <header className="lf-topbar">

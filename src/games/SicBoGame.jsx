@@ -31,8 +31,11 @@ export default function SicBoGame({ user, onUpdate, onBack, onAtm, onError, conf
       const [r] = await Promise.all([api.betSicbo(bets), sleep(750)]);
       setDice(r.dice);
       setBalance(r.balance);
+      // A net-zero roll here only happens when at least one bet actually won
+      // (Sic Bo has no bet that itself pushes) — a winning bet offset a
+      // losing one. That's a break-even round, not a push.
       setResult({
-        label: r.delta > 0 ? "You win!" : r.delta === 0 ? "Bets returned" : "No win this roll",
+        label: r.delta > 0 ? "You win!" : r.delta === 0 ? (r.wins.length > 0 ? "Break even" : "Bets returned") : "No win this roll",
         won: r.delta > 0,
         delta: r.delta,
         detail: `Dice ${r.dice.join(", ")} · total ${r.sum}${r.wins.length ? " · hits: " + r.wins.join(", ") : ""}`,

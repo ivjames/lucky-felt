@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import BrandMark from "../components/icons/BrandMark";
 import GameIcon from "../components/icons/GameIcon";
 import { AlertIcon, AtmIcon } from "../components/icons/UiIcons";
@@ -6,9 +6,15 @@ import { ATM_AMOUNT, ATM_COOLDOWN_MS, GAMES } from "../lib/constants";
 import "./Lobby.css";
 
 export default function Lobby({ user, onGame, onAtm, onLogout }) {
-  // Snapshot the clock once per mount (display-only; the server is the real
-  // cooldown enforcer). Keeps render pure for the react-hooks lint rule.
-  const [now] = useState(() => Date.now());
+  // Ticking clock (display-only; the server is the real cooldown enforcer) so
+  // the cooldown label counts down live instead of going stale after mount,
+  // and the button becomes genuinely enabled — not just less transparent —
+  // the moment the cooldown actually ends.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
   const canAtm = now - user.lastAtm > ATM_COOLDOWN_MS;
   const cooldownMin = Math.max(0, Math.ceil((ATM_COOLDOWN_MS - (now - user.lastAtm)) / 60000));
   const broke = user.balance < 1;
@@ -33,11 +39,12 @@ export default function Lobby({ user, onGame, onAtm, onLogout }) {
             </div>
             <button
               className={`lf-btn lf-btn--ghost lf-lobby__atm${canAtm ? "" : " lf-lobby__atm--cooldown"}`}
-              onClick={() => canAtm && onAtm()}
+              onClick={onAtm}
+              disabled={!canAtm}
               aria-label={canAtm ? `Free ATM top-up, add $${ATM_AMOUNT}` : `ATM available in ${cooldownMin} minutes`}
             >
               <AtmIcon className="lf-btn__icon" />
-              {canAtm ? `Free top-up +$${ATM_AMOUNT}` : `ATM — ${cooldownMin}m cooldown`}
+              {canAtm ? `Free top-up +$${ATM_AMOUNT}` : `ATM — ${cooldownMin}m left`}
             </button>
             <button className="lf-btn lf-btn--ghost lf-btn--sm" onClick={onLogout}>
               Sign out

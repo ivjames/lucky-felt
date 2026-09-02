@@ -99,80 +99,18 @@ With nothing configured the code is logged to the backend console (dev fallback)
 
 ## Deploy
 
-Production is a Droplet running nginx (serves `dist/`, proxies `/api/`) and pm2 (keeps the API process alive). DigitalOcean App Platform's free static tier does not fit this app: it has no process for the Express API, and App Platform's container disk is ephemeral, so the SQLite database would be wiped on every deploy.
-
-### Frontend: build and serve with nginx
-
-```bash
-# On the droplet
-apt install nginx nodejs npm -y
-cd /var/www
-git clone <your-repo> lucky-felt
-cd lucky-felt && npm install && npm run build
-```
-
-nginx config at `/etc/nginx/sites-available/casino`:
-
-```nginx
-server {
-    listen 80;
-    server_name casino.yourdomain.com;
-
-    root /var/www/lucky-felt/dist;
-    index index.html;
-
-    # Single-page app: unknown paths fall back to index.html
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # API. The forwarded headers matter: the server runs behind
-    # `trust proxy` and keys its rate limits on the client IP.
-    location /api/ {
-        proxy_pass http://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
+Production is the lab980 droplet: nginx serves the built `dist/` and proxies
+`/api/` to the Express API, which pm2 runs as `casino-api` from a copy of
+`server/`. Merging to `main` deploys nothing; on the droplet run:
 
 ```bash
-ln -s /etc/nginx/sites-available/casino /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
-
-# HTTPS (recommended)
-apt install certbot python3-certbot-nginx -y
-certbot --nginx -d casino.yourdomain.com
+casino deploy      # sync, build, copy server/, npm ci, pm2 restart, probe
+casino status      # what is actually live
 ```
 
-### Backend: run the API with pm2
-
-The API is the repo's `server/` directory, with its own `index.js` and `server/package.json` (distinct from the Vite frontend `package.json` at the repo root). On the droplet, **only `server/`'s contents** are deployed to `/var/www/casino-api`, so the commands below run from that directory. (Deploying a full repo clone instead? Then the entrypoint is `/var/www/lucky-felt/server`.)
-
-```bash
-cd /var/www/casino-api
-npm install
-CASINO_DB=/var/data/casino.db PORT=3001 \
-  SMTP_HOST=smtp.resend.com SMTP_PORT=465 SMTP_SECURE=true \
-  SMTP_USER=resend SMTP_PASS=re_xxxxxxxx \
-  MAIL_FROM='Lucky Felt Casino <no-reply@casino.lab980.com>' \
-  pm2 restart casino-api   # or `pm2 start index.js --name casino-api`
-pm2 save                   # snapshot the process list to the dump
-```
-
-Set `CASINO_DB` to a path outside the deploy directory so the database survives redeploys, and configure the SMTP vars (see [Email](#email-sign-in-codes)) so sign-in codes are delivered.
-
-**One time per droplet — install pm2's boot hook, or `casino-api` won't come back after a reboot.** `pm2 save` only writes the dump; without the systemd hook nothing replays it at boot, and the static `dist/` frontend will keep loading while every `/api/` call 502s.
-
-```bash
-pm2 startup systemd -u root --hp /root   # run the sudo command it prints, once
-systemctl is-enabled pm2-root            # verify -> should print `enabled`
-```
-
-Health check: `curl -s https://casino.yourdomain.com/api/health` should return `{"ok":true}`.
+The full runbook — layout, `.env` keys, first-time bring-up, the nginx vhost —
+is [`DEPLOY.md`](DEPLOY.md). Working notes for this repo are in
+[`CLAUDE.md`](CLAUDE.md).
 
 ## Notes
 

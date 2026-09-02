@@ -1,0 +1,38 @@
+.lf-sicbo__total-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.lf-sicbo__total-label {
+  color: var(--lf-text-dim);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lf-sicbo__total-value {
+  color: var(--lf-gold);
+  font-size: 30px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.lf-sicbo__chips-title {
+  width: 100%;
+  margin-top: 22px;
+}
+
+.lf-sicbo__chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.lf-sicbo__board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}

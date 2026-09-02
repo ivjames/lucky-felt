@@ -1,0 +1,23 @@
+.lf-die {
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+  flex: none;
+}
+
+.lf-die--rolling {
+  animation: lf-tumble 0.42s ease-in-out infinite;
+}
+
+.lf-dice-tray {
+  display: flex;
+  gap: clamp(12px, 3vw, 20px);
+  justify-content: center;
+  align-items: center;
+  padding: clamp(16px, 4vw, 26px) 18px;
+  border-radius: var(--lf-radius);
+  background:
+    radial-gradient(80% 120% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 70%),
+    linear-gradient(160deg, #1b4128, #0d2617);
+  border: 1px solid var(--lf-line);
+  box-shadow: inset 0 2px 18px rgba(0, 0, 0, 0.45);
+  width: 100%;
+}

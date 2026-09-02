@@ -17,7 +17,8 @@ function rollDie() {
 }
 
 // ---- Cards / Poker -------------------------------------------------------
-const SUITS = ["♠", "♥", "♦", "♣"];
+// Suits are plain ids, not glyphs — the client draws each suit as an SVG.
+const SUITS = ["spades", "hearts", "diamonds", "clubs"];
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 const RANK_VAL = { "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "10": 10, J: 11, Q: 12, K: 13, A: 14 };
 
@@ -90,93 +91,101 @@ export function compareTB(a, b) {
 
 // ---- Slots ---------------------------------------------------------------
 // Reels and payout rules live here, server-side, as the single source of truth.
+// Symbols are plain string ids; the client maps each id to an SVG symbol and a
+// human-readable name. Paylines are structured so the client can render a real
+// table: { symbol, count, m } for a named combination, { any: true, count, m }
+// for "any matching symbols".
 // The client receives a read-only copy of the display tables via /api/config.
+//
+// `getWin` is generated from `paylines` (getWinFromPaylines below) instead of
+// being hand-written per machine, so the paid-out amount and the displayed
+// paytable can never diverge again. A rule matches by testing the leftmost
+// `count` reels against `symbol` ({ symbol, count, m }), or by testing whether
+// any symbol appears at least `count` times anywhere in the result
+// ({ any: true, count, m }). Rules are evaluated in array order and the first
+// match pays — so within each machine's paylines, list specific-symbol rules
+// before generic `any` rules, and within same-symbol rules list the highest
+// count/multiplier first (a 3-of-a-kind rule must come before a weaker 1- or
+// 2-of-a-kind rule for the same symbol, or the weaker rule would fire first).
+function symbolRuleWin(reel, symbol, count, m, bet) {
+  if (reel.length < count) return null;
+  for (let i = 0; i < count; i++) if (reel[i] !== symbol) return null;
+  return m < 1 ? Math.ceil(bet * m) : bet * m;
+}
+function anyRuleWin(reel, count, m, bet) {
+  const counts = {};
+  reel.forEach((x) => { counts[x] = (counts[x] || 0) + 1; });
+  const max = Math.max(...Object.values(counts));
+  if (max < count) return null;
+  return m < 1 ? Math.ceil(bet * m) : bet * m;
+}
+function getWinFromPaylines(paylines, reel, bet) {
+  for (const rule of paylines) {
+    const amount = rule.any
+      ? anyRuleWin(reel, rule.count, rule.m, bet)
+      : symbolRuleWin(reel, rule.symbol, rule.count, rule.m, bet);
+    if (amount !== null) return amount;
+  }
+  return 0;
+}
+
+const SLOTS1_PAYLINES = [
+  { symbol: "seven", count: 3, m: 100 }, { symbol: "diamond", count: 3, m: 50 },
+  { symbol: "bar", count: 3, m: 20 }, { symbol: "star", count: 3, m: 10 },
+  { symbol: "bell", count: 3, m: 10 },
+  { symbol: "cherry", count: 3, m: 5 }, { symbol: "cherry", count: 2, m: 2 },
+  { symbol: "cherry", count: 1, m: 0.5 },
+];
+const SLOTS2_PAYLINES = [
+  { symbol: "star", count: 3, m: 75 }, { symbol: "melon", count: 3, m: 30 },
+  { symbol: "grape", count: 3, m: 25 }, { symbol: "peach", count: 3, m: 20 },
+  { symbol: "strawberry", count: 3, m: 15 }, { symbol: "orange", count: 3, m: 12 },
+  { symbol: "lemon", count: 3, m: 10 }, { symbol: "cherry", count: 3, m: 8 },
+  { symbol: "cherry", count: 2, m: 3 }, { symbol: "cherry", count: 1, m: 0.5 },
+];
+const SLOTS3_PAYLINES = [
+  { symbol: "rocket", count: 5, m: 500 }, { symbol: "sun", count: 5, m: 200 },
+  { symbol: "planet", count: 5, m: 150 }, { symbol: "northstar", count: 5, m: 100 },
+  { symbol: "star", count: 5, m: 50 }, { symbol: "comet", count: 5, m: 30 },
+  { any: true, count: 5, m: 10 }, { any: true, count: 4, m: 3 },
+  { any: true, count: 3, m: 2 }, { any: true, count: 2, m: 0.5 },
+];
+
 export const SLOT_CONFIGS = {
   slots1: {
     name: "Classic Slots",
     reels: [
-      ["7", "BAR", "BAR", "🍒", "🔔", "💎", "⭐", "BAR", "🍒"],
-      ["7", "BAR", "🍒", "BAR", "🔔", "💎", "⭐", "BAR", "🍒"],
-      ["7", "BAR", "🍒", "BAR", "🔔", "💎", "BAR", "⭐", "🍒"],
+      ["seven", "bar", "bar", "cherry", "bell", "diamond", "star", "bar", "cherry"],
+      ["seven", "bar", "cherry", "bar", "bell", "diamond", "star", "bar", "cherry"],
+      ["seven", "bar", "cherry", "bar", "bell", "diamond", "bar", "star", "cherry"],
     ],
-    symbols: ["🍒", "BAR", "7", "💎", "⭐", "🔔"],
-    paylines: [
-      { s: "7 7 7", m: 100 }, { s: "💎 💎 💎", m: 50 }, { s: "BAR BAR BAR", m: 20 },
-      { s: "⭐ ⭐ ⭐", m: 10 }, { s: "🍒 🍒 🍒", m: 5 }, { s: "🍒 🍒", m: 2 }, { s: "🍒", m: 0.5 },
-    ],
-    getWin(r, bet) {
-      const [a, b, c] = r;
-      if (a === "7" && b === "7" && c === "7") return bet * 100;
-      if (a === "💎" && b === "💎" && c === "💎") return bet * 50;
-      if (a === "BAR" && b === "BAR" && c === "BAR") return bet * 20;
-      if (a === b && b === c) return bet * 10;
-      if (a === "🍒" && b === "🍒") return bet * 2;
-      if (a === "🍒") return Math.ceil(bet * 0.5);
-      return 0;
-    },
+    symbols: ["cherry", "bar", "seven", "diamond", "star", "bell"],
+    paylines: SLOTS1_PAYLINES,
+    getWin(r, bet) { return getWinFromPaylines(SLOTS1_PAYLINES, r, bet); },
   },
   slots2: {
     name: "Fruit Slots",
     reels: [
-      ["🍒", "🍋", "🍊", "🍇", "🍉", "🍓", "🍑", "⭐", "🍒", "🍋"],
-      ["🍒", "🍋", "🍊", "🍇", "🍉", "🍓", "🍑", "⭐", "🍒", "🍋"],
-      ["🍒", "🍋", "🍊", "🍇", "🍉", "🍓", "🍑", "⭐", "🍒", "🍋"],
+      ["cherry", "lemon", "orange", "grape", "melon", "strawberry", "peach", "star", "cherry", "lemon"],
+      ["cherry", "lemon", "orange", "grape", "melon", "strawberry", "peach", "star", "cherry", "lemon"],
+      ["cherry", "lemon", "orange", "grape", "melon", "strawberry", "peach", "star", "cherry", "lemon"],
     ],
-    symbols: ["🍒", "🍋", "🍊", "🍇", "🍉", "🍓", "🍑", "⭐"],
-    paylines: [
-      { s: "⭐ ⭐ ⭐", m: 75 }, { s: "🍉 🍉 🍉", m: 30 }, { s: "🍇 🍇 🍇", m: 25 },
-      { s: "🍒 🍒 🍒", m: 8 }, { s: "🍒 🍒", m: 3 }, { s: "🍒", m: 0.5 },
-    ],
-    getWin(r, bet) {
-      const [a, b, c] = r;
-      if (a === b && b === c) {
-        if (a === "⭐") return bet * 75;
-        if (a === "🍉") return bet * 30;
-        if (a === "🍇") return bet * 25;
-        if (a === "🍑") return bet * 20;
-        if (a === "🍓") return bet * 15;
-        if (a === "🍊") return bet * 12;
-        if (a === "🍋") return bet * 10;
-        if (a === "🍒") return bet * 8;
-      }
-      if (a === "🍒" && b === "🍒") return bet * 3;
-      if (a === "🍒") return Math.ceil(bet * 0.5);
-      return 0;
-    },
+    symbols: ["cherry", "lemon", "orange", "grape", "melon", "strawberry", "peach", "star"],
+    paylines: SLOTS2_PAYLINES,
+    getWin(r, bet) { return getWinFromPaylines(SLOTS2_PAYLINES, r, bet); },
   },
   slots3: {
-    name: "Lucky Stars — 5 Reel",
+    name: "Lucky Stars",
     reels: [
-      ["⭐", "🌟", "💫", "✨", "🌙", "☀️", "🪐", "🚀"],
-      ["⭐", "🌟", "💫", "✨", "🌙", "☀️", "🪐", "🚀"],
-      ["⭐", "🌟", "💫", "✨", "🌙", "☀️", "🪐", "🚀"],
-      ["⭐", "🌟", "💫", "✨", "🌙", "☀️", "🪐", "🚀"],
-      ["⭐", "🌟", "💫", "✨", "🌙", "☀️", "🪐", "🚀"],
+      ["star", "northstar", "comet", "sparkle", "moon", "sun", "planet", "rocket"],
+      ["star", "northstar", "comet", "sparkle", "moon", "sun", "planet", "rocket"],
+      ["star", "northstar", "comet", "sparkle", "moon", "sun", "planet", "rocket"],
+      ["star", "northstar", "comet", "sparkle", "moon", "sun", "planet", "rocket"],
+      ["star", "northstar", "comet", "sparkle", "moon", "sun", "planet", "rocket"],
     ],
-    symbols: ["⭐", "🌟", "💫", "✨", "🌙", "☀️", "🪐", "🚀"],
-    paylines: [
-      { s: "🚀 × 5", m: 500 }, { s: "☀️ × 5", m: 200 }, { s: "🌟 × 5", m: 100 },
-      { s: "⭐ × 5", m: 50 }, { s: "any × 5", m: 10 }, { s: "any × 4", m: 3 }, { s: "any × 3", m: 2 },
-    ],
-    getWin(r, bet) {
-      if (r.every((x) => x === r[0])) {
-        const s = r[0];
-        if (s === "🚀") return bet * 500;
-        if (s === "☀️") return bet * 200;
-        if (s === "🪐") return bet * 150;
-        if (s === "🌟") return bet * 100;
-        if (s === "⭐") return bet * 50;
-        if (s === "💫") return bet * 30;
-        return bet * 10;
-      }
-      const counts = {};
-      r.forEach((x) => { counts[x] = (counts[x] || 0) + 1; });
-      const max = Math.max(...Object.values(counts));
-      if (max >= 4) return bet * 3;
-      if (max >= 3) return bet * 2;
-      if (max >= 2) return Math.ceil(bet * 0.5);
-      return 0;
-    },
+    symbols: ["star", "northstar", "comet", "sparkle", "moon", "sun", "planet", "rocket"],
+    paylines: SLOTS3_PAYLINES,
+    getWin(r, bet) { return getWinFromPaylines(SLOTS3_PAYLINES, r, bet); },
   },
 };
 
@@ -191,8 +200,8 @@ export function spinSlots(gameId, bet) {
 // ---- Roulette ------------------------------------------------------------
 export const RED_NUMS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
 export const ROULETTE_BETS = [
-  { id: "red", label: "🔴 Red", payout: 1, check: (n) => RED_NUMS.includes(n) },
-  { id: "black", label: "⚫ Black", payout: 1, check: (n) => n > 0 && !RED_NUMS.includes(n) },
+  { id: "red", label: "Red", payout: 1, check: (n) => RED_NUMS.includes(n) },
+  { id: "black", label: "Black", payout: 1, check: (n) => n > 0 && !RED_NUMS.includes(n) },
   { id: "odd", label: "Odd", payout: 1, check: (n) => n % 2 !== 0 && n > 0 },
   { id: "even", label: "Even", payout: 1, check: (n) => n % 2 === 0 && n > 0 },
   { id: "1-18", label: "1–18", payout: 1, check: (n) => n >= 1 && n <= 18 },
@@ -200,7 +209,7 @@ export const ROULETTE_BETS = [
   { id: "1st12", label: "1st 12", payout: 2, check: (n) => n >= 1 && n <= 12 },
   { id: "2nd12", label: "2nd 12", payout: 2, check: (n) => n >= 13 && n <= 24 },
   { id: "3rd12", label: "3rd 12", payout: 2, check: (n) => n >= 25 && n <= 36 },
-  { id: "0", label: "Zero (35:1)", payout: 35, check: (n) => n === 0 },
+  { id: "0", label: "Zero", payout: 35, check: (n) => n === 0 },
 ];
 
 export function spinRoulette(bets) {

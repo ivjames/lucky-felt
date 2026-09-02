@@ -1,0 +1,30 @@
+.lf-broke {
+  text-align: center;
+  padding: 18px;
+  border-radius: var(--lf-radius);
+  margin: 14px 0;
+  background: var(--lf-warn-bg);
+  border: 1px solid var(--lf-warn-line);
+  color: var(--lf-warn);
+}
+
+.lf-broke__title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.lf-broke__icon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.lf-broke__text {
+  font-size: 13px;
+  margin: 6px 0 14px;
+  color: var(--lf-text-dim);
+}

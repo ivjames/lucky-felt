@@ -1,2 +1,192 @@
-* { box-sizing: border-box; }
-body { margin: 0; background: #060e0a; }
+/* ---------------------------------------------------------------------------
+   Design tokens. Every colour, radius and typographic size in the UI resolves
+   to something declared here.
+
+   Typography is a single family — Manrope Variable, self-hosted through the
+   @fontsource-variable/manrope package and bundled by Vite (imported in
+   main.jsx). Weight is the only axis of variation; there is no second face.
+   --------------------------------------------------------------------------- */
+:root {
+  /* Surfaces, darkest to lightest. 0 is the page, 4 is an inset well. */
+  --lf-surface-0: #081710;
+  --lf-surface-1: #0e2517;
+  --lf-surface-2: #16341f;
+  --lf-surface-3: #102a1a;
+  --lf-surface-4: #071310;
+
+  /* Hairlines */
+  --lf-line: #2d5c3c;
+  --lf-line-soft: rgba(143, 209, 165, 0.16);
+
+  /* Single accent: gold */
+  --lf-gold: #f2d16b;
+  --lf-gold-deep: #b28820;
+  --lf-gold-soft: rgba(242, 209, 107, 0.3);
+  --lf-gold-faint: rgba(242, 209, 107, 0.11);
+  --lf-on-gold: #10220f;
+
+  /* Text */
+  --lf-text: #f4eddc;
+  --lf-text-dim: #a8d3b6;
+  --lf-text-faint: #8fbb9d;
+
+  /* Semantic states — a placed bet, a win, a loss and a push are four
+     visually distinct things. */
+  --lf-bet: #f0b429;
+  --lf-bet-bg: #33240a;
+  --lf-bet-line: #c8901c;
+  --lf-win: #5bdc93;
+  --lf-win-bg: #0b331f;
+  --lf-win-line: #22c55e;
+  --lf-lose: #ff8a8a;
+  --lf-lose-bg: #3a1113;
+  --lf-lose-line: #e04a4a;
+  --lf-push: #9cc6ff;
+  --lf-push-bg: #101f38;
+  --lf-push-line: #4a86e8;
+  --lf-warn: #ffbe5c;
+  --lf-warn-bg: #301f06;
+  --lf-warn-line: #c98a25;
+
+  /* Playing cards and reel strips are the one light surface in the app. */
+  --lf-paper: #f7f2e6;
+  --lf-paper-edge: #ddd3ba;
+  --lf-ink: #1e2a23;
+  --lf-ink-red: #bc2b34;
+
+  /* Roulette pockets */
+  --lf-pocket-red: #b6202c;
+  --lf-pocket-black: #1a201c;
+  --lf-pocket-green: #1a7a46;
+
+  /* Layout */
+  --lf-container: 1040px;
+  --lf-gap: 16px;
+  --lf-radius: 14px;
+  --lf-radius-sm: 9px;
+  --lf-radius-pill: 999px;
+
+  /* Safe areas — the shell is padded for a Capacitor/notched wrap. */
+  --lf-safe-t: env(safe-area-inset-top, 0px);
+  --lf-safe-r: env(safe-area-inset-right, 0px);
+  --lf-safe-b: env(safe-area-inset-bottom, 0px);
+  --lf-safe-l: env(safe-area-inset-left, 0px);
+
+  --lf-font: "Manrope Variable", "Manrope", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--lf-surface-0);
+}
+
+body {
+  font-family: var(--lf-font);
+  font-synthesis-weight: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea,
+table {
+  font: inherit;
+  font-family: var(--lf-font);
+}
+
+button:hover:not(:disabled) {
+  filter: brightness(1.09);
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--lf-gold);
+  outline-offset: 3px;
+  border-radius: var(--lf-radius-sm);
+}
+
+button:disabled {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+  filter: none !important;
+}
+
+input:focus {
+  border-color: var(--lf-gold) !important;
+  box-shadow: 0 0 0 3px var(--lf-gold-faint);
+}
+
+svg {
+  display: block;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--lf-surface-0);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--lf-line);
+  border-radius: 4px;
+}
+
+/* ---- Shared motion ---- */
+@keyframes lf-reel-blur {
+  0%,
+  100% {
+    filter: blur(0);
+    transform: translateY(0);
+  }
+  50% {
+    filter: blur(1.4px);
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes lf-tumble {
+  0% {
+    transform: rotate(0deg) translateY(0);
+  }
+  25% {
+    transform: rotate(-14deg) translateY(-7px);
+  }
+  50% {
+    transform: rotate(9deg) translateY(0);
+  }
+  75% {
+    transform: rotate(16deg) translateY(-4px);
+  }
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+}
+
+@keyframes lf-wheel-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,37 @@
+.lf-gameheader {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.lf-gameheader__title {
+  color: var(--lf-gold);
+  font-weight: 700;
+  font-size: clamp(15px, 2.4vw, 19px);
+  letter-spacing: 0.01em;
+  margin: 0;
+  text-align: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.lf-gameheader__aside {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lf-gameheader__balance {
+  color: var(--lf-gold);
+  font-weight: 800;
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .lf-gameheader__title {
+    order: 3;
+    flex-basis: 100%;
+    text-align: left;
+  }
+}

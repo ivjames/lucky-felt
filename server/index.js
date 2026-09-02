@@ -26,6 +26,7 @@ const MAX_BET = 500;          // per single-stake game (slots, craps, poker)
 const MAX_TOTAL_BET = 5000;   // total across a multi-bet round (roulette, sic bo)
 const CODE_TTL_MS = 10 * 60 * 1000;   // sign-in code validity window
 const MAX_CODE_ATTEMPTS = 5;          // wrong guesses before a code is burned
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // sessions expire 30 days after creation
 // Dev convenience ONLY: when no SMTP is configured AND this flag is set, the
 // code is returned in the request response so local dev needs no mail server.
 // Never enable in production.
@@ -52,6 +53,13 @@ db.exec(`
     expires   INTEGER NOT NULL,
     attempts  INTEGER NOT NULL DEFAULT 0
   );
+  CREATE TABLE IF NOT EXISTS game_state (
+    email   TEXT NOT NULL,
+    game    TEXT NOT NULL,
+    data    TEXT NOT NULL,
+    updated INTEGER NOT NULL,
+    PRIMARY KEY (email, game)
+  );
 `);
 
 const q = {
@@ -60,20 +68,46 @@ const q = {
   setBalance: db.prepare("UPDATE users SET balance = ? WHERE email = ?"),
   setAtm: db.prepare("UPDATE users SET balance = ?, last_atm = ? WHERE email = ?"),
   insertSession: db.prepare("INSERT INTO sessions (token, email, created) VALUES (?, ?, ?)"),
-  getSession: db.prepare("SELECT email FROM sessions WHERE token = ?"),
+  getSession: db.prepare("SELECT email, created FROM sessions WHERE token = ?"),
   deleteSession: db.prepare("DELETE FROM sessions WHERE token = ?"),
+  deleteExpiredSessions: db.prepare("DELETE FROM sessions WHERE created < ?"),
   upsertCode: db.prepare(`INSERT INTO login_codes (email, code_hash, expires, attempts) VALUES (?, ?, ?, 0)
     ON CONFLICT(email) DO UPDATE SET code_hash = excluded.code_hash, expires = excluded.expires, attempts = 0`),
   getCode: db.prepare("SELECT code_hash AS codeHash, expires, attempts FROM login_codes WHERE email = ?"),
   bumpCodeAttempts: db.prepare("UPDATE login_codes SET attempts = attempts + 1 WHERE email = ?"),
   deleteCode: db.prepare("DELETE FROM login_codes WHERE email = ?"),
+  deleteExpiredCodes: db.prepare("DELETE FROM login_codes WHERE expires < ?"),
+  getState: db.prepare("SELECT data FROM game_state WHERE email = ? AND game = ?"),
+  setState: db.prepare(`INSERT INTO game_state (email, game, data, updated) VALUES (?, ?, ?, ?)
+    ON CONFLICT(email, game) DO UPDATE SET data = excluded.data, updated = excluded.updated`),
+  deleteState: db.prepare("DELETE FROM game_state WHERE email = ? AND game = ?"),
 };
 
+// Purge anything already stale so a long-idle DB doesn't keep dead rows around
+// forever. Safe to run every boot — it only removes rows past their own TTL.
+function cleanupExpired() {
+  const now = Date.now();
+  q.deleteExpiredSessions.run(now - SESSION_TTL_MS);
+  q.deleteExpiredCodes.run(now);
+}
+cleanupExpired();
+
 // Per-user in-progress hand state for the stateful games (craps point, poker
-// deck). Ephemeral by design — a server restart simply drops any hand in flight
-// and the client falls back to starting a fresh round.
-const crapsState = new Map(); // email -> { type, phase, point, bet }
-const pokerState = new Map(); // email -> { deck, player, dealer, community, bet, pot, phase }
+// deck), persisted in SQLite (`game_state`) so a server restart doesn't drop a
+// hand whose stake was already debited. Reads/writes happen synchronously
+// (better-sqlite3) inside the same handler that mutates balance, with no
+// awaits in between, and balance + state changes that must land together are
+// wrapped in a single db.transaction so they can't partially apply.
+function getGameState(email, game) {
+  const row = q.getState.get(email, game);
+  return row ? JSON.parse(row.data) : null;
+}
+function setGameState(email, game, state) {
+  q.setState.run(email, game, JSON.stringify(state), Date.now());
+}
+function clearGameState(email, game) {
+  q.deleteState.run(email, game);
+}
 
 // ---- App -----------------------------------------------------------------
 const app = express();
@@ -124,6 +158,10 @@ function auth(req, res, next) {
   if (!token) return res.status(401).json({ error: "Missing auth token." });
   const session = q.getSession.get(token);
   if (!session) return res.status(401).json({ error: "Invalid or expired session." });
+  if (Date.now() - session.created > SESSION_TTL_MS) {
+    q.deleteSession.run(token);
+    return res.status(401).json({ error: "Invalid or expired session." });
+  }
   const user = q.getUser.get(session.email);
   if (!user) return res.status(401).json({ error: "Account not found." });
   req.user = user;
@@ -172,6 +210,7 @@ function validEmail(email) {
 app.post("/api/login/request", authLimiter, async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   if (!validEmail(email)) return res.status(400).json({ error: "Enter a valid email address." });
+  q.deleteExpiredCodes.run(Date.now()); // sweep stale codes (any email) on each new request
   const code = newLoginCode();
   q.upsertCode.run(email, hashCode(email, code), Date.now() + CODE_TTL_MS);
   try {
@@ -221,12 +260,10 @@ app.get("/api/me", auth, (req, res) => {
   res.json({ user: publicUser(req.user) });
 });
 
-// Read-only smoke-test endpoint (no token): balance lookup only. Kept for the
-// `curl .../api/user/test@test.com` health check in the handoff.
-app.get("/api/user/:email", (req, res) => {
-  const u = q.getUser.get(String(req.params.email).toLowerCase());
-  if (!u) return res.status(404).json({ error: "Not found." });
-  res.json({ email: u.email, balance: u.balance, created: u.created });
+// Unauthenticated health check only — no account data. (Balance lookups
+// require a session token; see GET /api/me.)
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true });
 });
 
 app.get("/api/config", (req, res) => {
@@ -284,10 +321,10 @@ app.post("/api/bet/sicbo", betLimiter, auth, (req, res) => {
   res.json({ balance, dice, sum, winnings, wins, delta: winnings - total });
 });
 
-// ---- Craps (stateful) ----------------------------------------------------
+// ---- Craps (stateful; persisted so a restart never strands the stake) -----
 app.post("/api/bet/craps", betLimiter, auth, (req, res) => {
   const u = req.user;
-  let state = crapsState.get(u.email);
+  let state = getGameState(u.email, "craps");
   let balance = u.balance;
 
   // No active point game → this roll opens a new round (deduct the stake now).
@@ -302,28 +339,40 @@ app.post("/api/bet/craps", betLimiter, auth, (req, res) => {
 
   const roll = crapsRoll(state);
   let delta = 0;
-  if (roll.outcome === "win") { balance += state.bet * 2; delta = state.bet; crapsState.delete(u.email); }
-  else if (roll.outcome === "lose") { delta = -state.bet; crapsState.delete(u.email); }
-  else if (roll.outcome === "push") { balance += state.bet; delta = 0; crapsState.delete(u.email); }
-  else { state.phase = roll.nextPhase; state.point = roll.nextPoint; crapsState.set(u.email, state); }
+  let settled = true;
+  if (roll.outcome === "win") { balance += state.bet * 2; delta = state.bet; }
+  else if (roll.outcome === "lose") { delta = -state.bet; }
+  else if (roll.outcome === "push") { balance += state.bet; delta = 0; }
+  else { state.phase = roll.nextPhase; state.point = roll.nextPoint; settled = false; }
 
-  q.setBalance.run(balance, u.email);
+  // Balance + hand-state changes land together, atomically — synchronous
+  // better-sqlite3, no awaits between reading and writing.
+  db.transaction(() => {
+    q.setBalance.run(balance, u.email);
+    if (settled) clearGameState(u.email, "craps");
+    else setGameState(u.email, "craps", state);
+  })();
+
   res.json({
     balance, dice: roll.dice, sum: roll.sum, outcome: roll.outcome, label: roll.label,
     phase: roll.outcome === "continue" ? roll.nextPhase : "comeout",
     point: roll.outcome === "continue" ? roll.nextPoint : null,
     bet: state.bet, type: state.type, delta,
-    settled: roll.outcome !== "continue",
+    settled,
   });
 });
 
 // ---- Poker (stateful; dealer cards stay server-side until showdown) -------
+// Hand state (deck/player/dealer/community/bet/pot/phase) is persisted in
+// `game_state` so a server restart mid-hand doesn't strand the already-
+// debited stake — GET /api/poker/state recovers it after a restart exactly
+// as it would after a page reload.
 app.post("/api/poker/deal", betLimiter, auth, (req, res) => {
   const u = req.user;
   // A hand already in progress (e.g. the player reloaded mid-hand) must not be
   // clobbered — its stake is already deducted. Reject and let the client resume
   // via GET /api/poker/state instead of silently forfeiting the live pot.
-  if (pokerState.has(u.email)) return res.status(409).json({ error: "Finish your hand in progress first.", active: true });
+  if (getGameState(u.email, "poker")) return res.status(409).json({ error: "Finish your hand in progress first.", active: true });
   const { bet } = req.body || {};
   const err = validateBet(bet, u.balance);
   if (err) return res.status(400).json({ error: err });
@@ -335,23 +384,26 @@ app.post("/api/poker/deal", betLimiter, auth, (req, res) => {
     community: [],
     bet, pot: bet, phase: "deal",
   };
-  pokerState.set(u.email, state);
   const balance = u.balance - bet;
-  q.setBalance.run(balance, u.email);
+  db.transaction(() => {
+    q.setBalance.run(balance, u.email);
+    setGameState(u.email, "poker", state);
+  })();
   res.json({ balance, player: state.player, pot: state.pot, phase: "deal" });
 });
 
-// Lets a reconnecting client recover a hand it was in the middle of. Dealer
+// Lets a reconnecting client recover a hand it was in the middle of — including
+// after a server restart, since the hand lives in SQLite, not memory. Dealer
 // hole cards stay hidden — same rule as deal.
 app.get("/api/poker/state", auth, (req, res) => {
-  const state = pokerState.get(req.user.email);
+  const state = getGameState(req.user.email, "poker");
   if (!state) return res.json({ active: false });
   res.json({ active: true, player: state.player, community: state.community, pot: state.pot, phase: state.phase });
 });
 
 app.post("/api/poker/advance", auth, (req, res) => {
   const u = req.user;
-  const state = pokerState.get(u.email);
+  const state = getGameState(u.email, "poker");
   if (!state) return res.status(409).json({ error: "No hand in progress." });
   const order = { deal: "flop", flop: "turn", turn: "river" };
   const next = order[state.phase];
@@ -359,13 +411,13 @@ app.post("/api/poker/advance", auth, (req, res) => {
   if (next === "flop") { state.community = state.deck.slice(0, 3); state.deck = state.deck.slice(3); }
   else { state.community.push(state.deck[0]); state.deck = state.deck.slice(1); }
   state.phase = next;
-  pokerState.set(u.email, state);
+  setGameState(u.email, "poker", state);
   res.json({ community: state.community, phase: state.phase });
 });
 
 app.post("/api/poker/showdown", auth, (req, res) => {
   const u = req.user;
-  const state = pokerState.get(u.email);
+  const state = getGameState(u.email, "poker");
   if (!state) return res.status(409).json({ error: "No hand in progress." });
   // Complete the board if the player rushed to showdown early.
   while (state.community.length < 5) { state.community.push(state.deck.shift()); }
@@ -375,8 +427,10 @@ app.post("/api/poker/showdown", auth, (req, res) => {
   if (pH.rank > dH.rank || (pH.rank === dH.rank && compareTB(pH.tb, dH.tb) > 0)) win = true;
   else if (pH.rank === dH.rank && compareTB(pH.tb, dH.tb) === 0) push = true;
   const balance = u.balance + (win ? state.pot * 2 : push ? state.pot : 0);
-  q.setBalance.run(balance, u.email);
-  pokerState.delete(u.email);
+  db.transaction(() => {
+    q.setBalance.run(balance, u.email);
+    clearGameState(u.email, "poker");
+  })();
   res.json({
     balance, dealer: state.dealer, community: state.community,
     playerHand: pH.name, dealerHand: dH.name,
@@ -386,10 +440,10 @@ app.post("/api/poker/showdown", auth, (req, res) => {
 
 app.post("/api/poker/fold", auth, (req, res) => {
   const u = req.user;
-  const state = pokerState.get(u.email);
+  const state = getGameState(u.email, "poker");
   if (!state) return res.status(409).json({ error: "No hand in progress." });
   // Stake already deducted at deal; folding just forfeits it.
-  pokerState.delete(u.email);
+  clearGameState(u.email, "poker");
   res.json({ balance: u.balance, delta: -state.pot });
 });
 

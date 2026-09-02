@@ -1,0 +1,137 @@
+/* ---- The cabinet ---- */
+.lf-slots__cabinet {
+  position: relative;
+  /* Sized to the reel count so a 3-reel machine reads as a cabinet, not a slab. */
+  max-width: calc(var(--lf-reels, 3) * 104px + (var(--lf-reels, 3) - 1) * 8px + 52px);
+  margin: 0 auto;
+  border-radius: var(--lf-radius);
+  padding: 16px;
+  background: linear-gradient(170deg, var(--lf-gold-deep), #7b5c11 55%, #4d3908);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.4);
+}
+
+.lf-slots__window {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--lf-radius-sm);
+  background: var(--lf-surface-4);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.4);
+}
+
+.lf-slots__reel {
+  position: relative;
+  flex: 1 1 0;
+  max-width: 104px;
+  aspect-ratio: 3 / 4;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #cfc4a8 0%, var(--lf-paper) 22%, #fffdf7 50%, var(--lf-paper) 78%, #cfc4a8 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.lf-slots__symbol {
+  width: 62%;
+  height: 62%;
+}
+
+.lf-slots__reel--spinning {
+  animation: lf-reel-blur 0.18s linear infinite;
+}
+
+.lf-slots__payline-marker {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-1px);
+  background: linear-gradient(90deg, transparent, rgba(255, 90, 90, 0.75), transparent);
+  pointer-events: none;
+}
+
+/* ---- Paytable + controls ---- */
+.lf-slots__lower {
+  display: grid;
+  gap: 22px;
+  margin-top: 22px;
+}
+
+.lf-slots__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.lf-slots__table th {
+  text-align: left;
+  color: var(--lf-text-faint);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 0 6px;
+}
+
+.lf-slots__table th:last-child,
+.lf-slots__multiplier {
+  text-align: right;
+}
+
+.lf-slots__table td {
+  padding: 7px 0;
+  border-top: 1px solid var(--lf-line-soft);
+  color: var(--lf-text-dim);
+  vertical-align: middle;
+}
+
+.lf-slots__multiplier {
+  color: var(--lf-gold);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  padding-left: 12px;
+}
+
+.lf-slots__combo {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.lf-slots__combo-symbol {
+  width: 25px;
+  height: 25px;
+  background: var(--lf-paper);
+  border-radius: 4px;
+  padding: 1px;
+  flex: none;
+}
+
+.lf-slots__any {
+  width: 25px;
+  height: 25px;
+  border-radius: 4px;
+  border: 1px dashed var(--lf-text-faint);
+  flex: none;
+}
+
+.lf-slots__combo-text {
+  margin-left: 7px;
+  color: var(--lf-text);
+  font-weight: 600;
+}
+
+.lf-slots__spin {
+  margin-top: 8px;
+  width: 100%;
+}
+
+@media (min-width: 760px) {
+  .lf-slots__lower {
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+  }
+}

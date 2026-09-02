@@ -159,19 +159,30 @@ p=[x for x in procs if x.get("name")==os.environ["APP"]]
 e=(p[0].get("pm2_env") or {}) if p else {}
 print(e.get("pm_exec_path") or "")' 2>/dev/null || true
 }
+# resolve_api_dir [soft]: mutating commands (deploy/restart/setup) die when
+# the directory can't be inferred; `status` passes "soft" and only warns, so
+# a pm2 metadata problem is something status can report rather than a reason
+# it refuses to run.
 resolve_api_dir() {
+  local soft="${1:-}" msg
   if [ -n "${CASINO_API_DIR:-}" ]; then return 0; fi   # explicit override wins
   if ! pm2_registered; then return 0; fi              # first deploy: nothing to learn from yet
   local sp; sp="$(pm2_script_path)"
   # A registered process whose script path we cannot read is exactly the
   # case where guessing the directory restarts the wrong code; don't guess.
-  [ -n "$sp" ] || die "pm2 has a process named $APP but its script path could not be read from 'pm2 jlist'. Set CASINO_API_DIR to the directory holding the API's index.js and re-run."
+  if [ -z "$sp" ]; then
+    msg="pm2 has a process named $APP but its script path could not be read from 'pm2 jlist'. Set CASINO_API_DIR to the directory holding the API's index.js"
+    if [ "$soft" = "soft" ]; then warn "$msg"; return 0; fi
+    die "$msg, then re-run."
+  fi
   # Only an index.js tells us where the API lives. A wrapper (npm, a shell
   # script, an ecosystem entry) says nothing about the directory, and copying
   # server/ beside it would clobber whatever is there.
   case "$(basename "$sp")" in
     index.js) ;;
-    *) die "pm2 runs $APP as $sp, not an index.js, so the API directory can't be inferred. Set CASINO_API_DIR to the directory holding the API's index.js and re-run.";;
+    *) msg="pm2 runs $APP as $sp, not an index.js, so the API directory can't be inferred. Set CASINO_API_DIR to the directory holding the API's index.js"
+       if [ "$soft" = "soft" ]; then warn "$msg"; return 0; fi
+       die "$msg, then re-run.";;
   esac
   local d; d="$(dirname "$sp")"
   if [ "$(readlink -f "$d")" != "$(readlink -f "$API_DIR")" ]; then
@@ -427,7 +438,7 @@ cmd_logs() { pm2 logs "$APP" "$@"; }
 
 cmd_status() {
   cd "$ROOT"
-  resolve_api_dir
+  resolve_api_dir soft
   printf 'checkout:   %s  %s\n' "$(git rev-parse --short HEAD)" "$(git log -1 --format=%s)"
   if [ -f "$API_DIR/$STAMP" ]; then
     printf 'api dir:    %s @ %s\n' "$API_DIR" "$(cat "$API_DIR/$STAMP")"

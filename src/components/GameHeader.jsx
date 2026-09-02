@@ -1,3 +1,4 @@
+import { useCountUp } from "../lib/useCountUp";
 import { AtmIcon, BackIcon } from "./icons/UiIcons";
 import "./GameHeader.css";
 
@@ -6,7 +7,11 @@ export default function GameHeader({ title, balance, onBack, onAtm }) {
   // enforces the cooldown, so gating it here on balance just hid the button
   // exactly when a mid-cooldown player still wanted to check it.
   const canAtm = !!onAtm;
-  const shown = typeof balance === "number" ? balance.toFixed(2) : balance;
+  // The visible number rolls to the new balance; the label carries the real
+  // one, so what a screen reader hears is never a frame of an animation.
+  const rolling = useCountUp(typeof balance === "number" ? balance : 0);
+  const shown = typeof balance === "number" ? rolling.toFixed(2) : balance;
+  const exact = typeof balance === "number" ? balance.toFixed(2) : balance;
   return (
     <header className="lf-topbar">
       <div className="lf-shell lf-topbar__inner lf-gameheader">
@@ -22,7 +27,7 @@ export default function GameHeader({ title, balance, onBack, onAtm }) {
               ATM
             </button>
           )}
-          <div className="lf-gameheader__balance" aria-label={`Balance: $${shown}`}>
+          <div className="lf-gameheader__balance" aria-label={`Balance: $${exact}`}>
             <span aria-hidden="true">${shown}</span>
           </div>
         </div>

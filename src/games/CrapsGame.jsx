@@ -67,14 +67,18 @@ export default function CrapsGame({ user, onUpdate, onBack, onAtm, onError }) {
       <GameHeader title="Craps" balance={balance} onBack={onBack} onAtm={onAtm} />
       <main className="lf-shell lf-game lf-game--split">
         <section className="lf-panel lf-game__stage lf-craps__stage">
-          <div
-            className="lf-dice-tray"
-            role="status"
-            aria-label={rolling ? "Dice rolling" : `Dice showing ${dice[0] ?? "nothing"} and ${dice[1] ?? "nothing"}`}
-          >
-            {dice.map((d, i) => (
-              <Die key={i} value={d} rolling={rolling} size={78} />
-            ))}
+          {/* The tray is the pitched surface; the readout and the wager
+              controls below it stay flat. */}
+          <div className="lf-stage3d lf-dice-stage">
+            <div
+              className="lf-stage3d__surface lf-dice-tray"
+              role="status"
+              aria-label={rolling ? "Dice rolling" : `Dice showing ${dice[0] ?? "nothing"} and ${dice[1] ?? "nothing"}`}
+            >
+              {dice.map((d, i) => (
+                <Die key={i} value={d} rolling={rolling} size={78} index={i} />
+              ))}
+            </div>
           </div>
 
           <div className="lf-craps__readout">

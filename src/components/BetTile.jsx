@@ -21,7 +21,10 @@ export default function BetTile({ name, label, payoutText, stake, chipVal, disab
         <span className="lf-bettile__label">{label}</span>
         <span className="lf-bettile__meta">
           {placed ? (
-            <span className="lf-bettile__stake">${stake} on {payoutText}</span>
+            <span className="lf-bettile__stake">
+              {/* Keyed on the stake so every chip that lands re-runs the drop. */}
+              <span key={stake} className="lf-bettile__chip" aria-hidden="true" />${stake} on {payoutText}
+            </span>
           ) : (
             `pays ${payoutText}`
           )}

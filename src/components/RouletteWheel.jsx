@@ -38,9 +38,22 @@ const FILL = {
  * A European single-zero wheel: 37 pockets in true physical order and the
  * correct red/black/green colouring. `rotation` is applied as a CSS transform
  * so the settle is a transition; while `spinning` the rim turns on a keyframe.
+ *
+ * The ball is its own element on its own arm, running the track the opposite
+ * way round. `ballRotation` is always a whole number of turns, so wherever the
+ * ball has got to it always comes to rest under the pointer at the top — which
+ * is the pocket the rim has brought round, which is the number the server sent.
+ * Nothing here picks a pocket.
+ *
  * Decorative — the caller announces the landed number in text.
  */
-export default function RouletteWheel({ rotation = 0, spinning = false, landed = null, redNums = [] }) {
+export default function RouletteWheel({
+  rotation = 0,
+  ballRotation = 0,
+  spinning = false,
+  landed = null,
+  redNums = [],
+}) {
   return (
     <svg className="lf-wheel" viewBox="0 0 200 200" aria-hidden="true" focusable="false">
       <circle cx={CX} cy={CY} r="97" fill="var(--lf-gold-deep)" />
@@ -87,9 +100,33 @@ export default function RouletteWheel({ rotation = 0, spinning = false, landed =
           {landed}
         </text>
       )}
-      {/* Ball pointer, fixed at the top of the track. */}
+      {/* The ball: an arm that turns, with the ball itself riding further out
+          on the track while the wheel is running and dropping into the pocket
+          as it settles. */}
+      <g
+        className={`lf-wheel__ballarm${spinning ? " lf-wheel__ballarm--spinning" : ""}`}
+        style={spinning ? undefined : { transform: `rotate(${ballRotation}deg)` }}
+      >
+        <ellipse
+          className="lf-wheel__ball-shadow"
+          cx={CX}
+          cy={CY - 72}
+          rx="5.2"
+          ry="3.4"
+          fill="rgba(0,0,0,0.55)"
+        />
+        <circle
+          className={`lf-wheel__ball${spinning ? " lf-wheel__ball--running" : ""}`}
+          cx={CX}
+          cy={CY - 74}
+          r="4.4"
+          fill="var(--lf-paper)"
+          stroke="var(--lf-ink)"
+          strokeWidth="0.7"
+        />
+      </g>
+      {/* Pointer, fixed at the top of the track. */}
       <path d={`M${CX} 15 l7 -12 h-14Z`} fill="var(--lf-gold)" />
-      <circle cx={CX} cy="20" r="4.2" fill="var(--lf-paper)" stroke="var(--lf-ink)" strokeWidth="0.8" />
     </svg>
   );
 }

@@ -78,14 +78,18 @@ export default function SicBoGame({ user, onUpdate, onBack, onAtm, onError, conf
       <GameHeader title="Sic Bo" balance={balance} onBack={onBack} onAtm={onAtm} />
       <main className="lf-shell lf-game lf-game--split">
         <section className="lf-panel lf-game__stage">
-          <div
-            className="lf-dice-tray"
-            role="status"
-            aria-label={rolling ? "Dice rolling" : rolled ? `Dice ${dice.join(", ")}, total ${sum}` : "No roll yet"}
-          >
-            {dice.map((d, i) => (
-              <Die key={i} value={d} rolling={rolling} size={66} />
-            ))}
+          {/* The tray is the pitched surface; the total, the chip rail and the
+              bet board below it stay flat. */}
+          <div className="lf-stage3d lf-dice-stage">
+            <div
+              className="lf-stage3d__surface lf-dice-tray"
+              role="status"
+              aria-label={rolling ? "Dice rolling" : rolled ? `Dice ${dice.join(", ")}, total ${sum}` : "No roll yet"}
+            >
+              {dice.map((d, i) => (
+                <Die key={i} value={d} rolling={rolling} size={66} index={i} />
+              ))}
+            </div>
           </div>
           <div className="lf-sicbo__total-readout" aria-live="polite">
             <span className="lf-sicbo__total-label">Total</span>

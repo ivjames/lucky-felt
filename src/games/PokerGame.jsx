@@ -164,37 +164,52 @@ export default function PokerGame({ user, onUpdate, onBack, onAtm, onError }) {
       <GameHeader title="Texas Hold'em" balance={balance} onBack={onBack} onAtm={onAtm} />
       <main className="lf-shell lf-game lf-game--narrow">
         <section className="lf-panel lf-poker">
-          <div className="lf-poker__table">
-            <div className="lf-poker__row">
-              <h2 className="lf-poker__rowtitle">Dealer</h2>
-              <div className="lf-poker__cards">
-                {phase === "bet" ? (
-                  <span className="lf-poker__placeholder">Waiting for the deal</span>
-                ) : revealed ? (
-                  dealer.map((c, i) => <Card key={i} card={c} />)
-                ) : (
-                  [0, 1].map((i) => <Card key={i} card={{}} hidden />)
-                )}
-              </div>
-            </div>
+          {/* The felt is pitched away from the viewer; everything below it —
+              the bet controls, the pot, the banner — stays flat. */}
+          <div className="lf-stage3d lf-poker__stage">
+            <div className="lf-stage3d__surface lf-rim lf-poker__rim">
+              <div className="lf-poker__table lf-felt">
+                <div className="lf-poker__deck" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </div>
 
-            <div className="lf-poker__row">
-              <h2 className="lf-poker__rowtitle">Board</h2>
-              <div className="lf-poker__cards">
-                {community.map((c, i) => (
-                  <Card key={i} card={c} />
-                ))}
-                {!community.length && <span className="lf-poker__placeholder">Awaiting the flop</span>}
-              </div>
-            </div>
+                <div className="lf-poker__row">
+                  <h2 className="lf-poker__rowtitle">Dealer</h2>
+                  <div className="lf-poker__cards lf-poker__cards--dealer">
+                    {phase === "bet" ? (
+                      <span className="lf-poker__placeholder">Waiting for the deal</span>
+                    ) : (
+                      // Same keys through the hand, so these two elements are
+                      // dealt face-down and later turn over rather than being
+                      // swapped out for different cards.
+                      [0, 1].map((i) => (
+                        <Card key={i} card={revealed ? dealer[i] : {}} hidden={!revealed} dealIndex={i} />
+                      ))
+                    )}
+                  </div>
+                </div>
 
-            <div className="lf-poker__row">
-              <h2 className="lf-poker__rowtitle">You</h2>
-              <div className="lf-poker__cards">
-                {player.map((c, i) => (
-                  <Card key={i} card={c} />
-                ))}
-                {!player.length && <span className="lf-poker__placeholder">Waiting for the deal</span>}
+                <div className="lf-poker__row">
+                  <h2 className="lf-poker__rowtitle">Board</h2>
+                  <div className="lf-poker__cards lf-poker__cards--board">
+                    {community.map((c, i) => (
+                      <Card key={i} card={c} dealIndex={i} flipIn />
+                    ))}
+                    {!community.length && <span className="lf-poker__placeholder">Awaiting the flop</span>}
+                  </div>
+                </div>
+
+                <div className="lf-poker__row">
+                  <h2 className="lf-poker__rowtitle">You</h2>
+                  <div className="lf-poker__cards lf-poker__cards--player">
+                    {player.map((c, i) => (
+                      <Card key={i} card={c} dealIndex={i + 2} />
+                    ))}
+                    {!player.length && <span className="lf-poker__placeholder">Waiting for the deal</span>}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

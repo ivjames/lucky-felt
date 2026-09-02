@@ -29,6 +29,10 @@ export default function RouletteGame({ user, onUpdate, onBack, onAtm, onError, c
   const [spinning, setSpinning] = useState(false);
   const [landed, setLanded] = useState(null);
   const [rotation, setRotation] = useState(0);
+  // The ball's arm, in degrees, always a whole number of turns the other way
+  // round — so wherever it is when the spin ends it settles under the pointer,
+  // over the pocket the server's number brought round.
+  const [ballRot, setBallRot] = useState(0);
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
   const [err, setErr] = useState(null);
@@ -63,6 +67,7 @@ export default function RouletteGame({ user, onUpdate, onBack, onAtm, onError, c
     try {
       const [r] = await Promise.all([api.betRoulette(bets), sleep(1400)]);
       setRotation((prev) => rotationFor(r.landed, prev));
+      setBallRot((prev) => prev - 1440);
       setLanded(r.landed);
       setBalance(r.balance);
       const wins = r.wins;
@@ -95,27 +100,42 @@ export default function RouletteGame({ user, onUpdate, onBack, onAtm, onError, c
       <GameHeader title="European Roulette" balance={balance} onBack={onBack} onAtm={onAtm} />
       <main className="lf-shell lf-game lf-game--split">
         <section className="lf-panel lf-game__stage">
-          <RouletteWheel rotation={rotation} spinning={spinning} landed={landed} redNums={redNums} />
-          <div className="lf-roulette__callout" role="status" aria-live="polite">
-            {spinning
-              ? "The wheel is spinning…"
-              : landed !== null
-                ? `Ball landed on ${landed} (${colorOf(landed)})`
-                : "Place your bets and spin."}
-          </div>
+          {/* The wheel stage — wheel, readout and recent spins — is pitched as
+              one surface. It carries a lot of type, so it takes the gentler
+              angle; the chip rail and the bet board opposite stay flat. */}
+          <div className="lf-stage3d lf-stage3d--soft lf-roulette__stage">
+            <div className="lf-stage3d__surface lf-roulette__surface">
+              <div className="lf-roulette__wheelwrap lf-contact">
+                <RouletteWheel
+                  rotation={rotation}
+                  ballRotation={ballRot}
+                  spinning={spinning}
+                  landed={landed}
+                  redNums={redNums}
+                />
+              </div>
+              <div className="lf-roulette__callout" role="status" aria-live="polite">
+                {spinning
+                  ? "The wheel is spinning…"
+                  : landed !== null
+                    ? `Ball landed on ${landed} (${colorOf(landed)})`
+                    : "Place your bets and spin."}
+              </div>
 
-          {history.length > 0 && (
-            <div className="lf-roulette__history">
-              <h2 className="lf-section-title lf-roulette__history-title">Recent spins</h2>
-              <ul className="lf-roulette__pips" aria-label="Recent results, newest first">
-                {history.map((h, i) => (
-                  <li key={i} className={`lf-roulette__pip lf-roulette__pip--${h.color}`}>
-                    {h.n}
-                  </li>
-                ))}
-              </ul>
+              {history.length > 0 && (
+                <div className="lf-roulette__history">
+                  <h2 className="lf-section-title lf-roulette__history-title">Recent spins</h2>
+                  <ul className="lf-roulette__pips" aria-label="Recent results, newest first">
+                    {history.map((h, i) => (
+                      <li key={i} className={`lf-roulette__pip lf-roulette__pip--${h.color}`}>
+                        {h.n}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </section>
 
         <section className="lf-panel">

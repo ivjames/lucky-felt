@@ -4,22 +4,59 @@
   margin-inline: auto;
 }
 
+/* ---- The pitched table --------------------------------------------------
+   `.lf-stage3d` (base.css) owns the perspective, the rim takes the tilt, and
+   the felt sits inside the rim. Nothing here is interactive: the controls live
+   below the stage, flat and square to the pointer. */
+.lf-poker__stage {
+  padding-bottom: 20px;
+}
+
 .lf-poker__table {
-  background:
-    radial-gradient(90% 130% at 50% -10%, rgba(255, 255, 255, 0.05), transparent 65%),
-    linear-gradient(165deg, #1d4a2c, #0e2a19);
-  border: 1px solid var(--lf-line);
   border-radius: var(--lf-radius);
   padding: 6px 18px 14px;
-  box-shadow: inset 0 2px 22px rgba(0, 0, 0, 0.4);
+  transform-style: preserve-3d;
+}
+
+/* The deck the cards are thrown from. Decorative, and the first thing to go
+   on a narrow screen where the dealer row needs the width. */
+.lf-poker__deck {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 34px;
+  height: 48px;
+  transform: translateZ(4px);
+  pointer-events: none;
+}
+
+.lf-poker__deck span {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  border: 1px solid var(--lf-gold-soft);
+  background:
+    repeating-linear-gradient(45deg, rgba(242, 209, 107, 0.5) 0 1px, transparent 1px 5px),
+    var(--lf-pocket-green);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.lf-poker__deck span:nth-child(2) {
+  transform: translate(-2px, -2px) rotate(-2.5deg);
+}
+
+.lf-poker__deck span:nth-child(3) {
+  transform: translate(-4px, -4px) rotate(-5deg);
 }
 
 .lf-poker__row {
+  position: relative;
   padding: 12px 0;
   display: grid;
   grid-template-columns: 74px 1fr;
   align-items: center;
   gap: 14px;
+  transform-style: preserve-3d;
 }
 
 .lf-poker__row + .lf-poker__row {
@@ -40,6 +77,33 @@
   justify-content: center;
   flex-wrap: wrap;
   gap: 7px;
+  transform-style: preserve-3d;
+}
+
+/* Cards sit ON the felt, not in it. */
+.lf-poker__cards .lf-card {
+  transform: translateZ(var(--lf-lift));
+}
+
+/* Where each row's cards are thrown from, relative to that row: the deck is
+   at the table's top-right, so the dealer row gets a short toss and the
+   player row a long one from further up the table. */
+.lf-poker__cards--dealer .lf-card {
+  --lf-deal-x: 150px;
+  --lf-deal-y: -40px;
+  --lf-deal-rot: 16deg;
+}
+
+.lf-poker__cards--board .lf-card {
+  --lf-deal-x: 180px;
+  --lf-deal-y: -108px;
+  --lf-deal-rot: 22deg;
+}
+
+.lf-poker__cards--player .lf-card {
+  --lf-deal-x: 210px;
+  --lf-deal-y: -184px;
+  --lf-deal-rot: 28deg;
 }
 
 .lf-poker__placeholder {
@@ -67,8 +131,22 @@
 }
 
 @media (max-width: 560px) {
+  .lf-poker__stage {
+    padding-inline: 8px;
+    padding-bottom: 14px;
+  }
+
+  .lf-poker__rim {
+    padding: 6px;
+  }
+
   .lf-poker__table {
     padding: 4px 12px 10px;
+  }
+
+  /* The dealer row needs the full width on a phone. */
+  .lf-poker__deck {
+    display: none;
   }
 
   .lf-poker__row {
@@ -82,5 +160,21 @@
 
   .lf-poker__cards {
     min-height: 66px;
+  }
+
+  /* Shorter throws so a card never starts outside the viewport. */
+  .lf-poker__cards--dealer .lf-card {
+    --lf-deal-x: 90px;
+    --lf-deal-y: -28px;
+  }
+
+  .lf-poker__cards--board .lf-card {
+    --lf-deal-x: 104px;
+    --lf-deal-y: -74px;
+  }
+
+  .lf-poker__cards--player .lf-card {
+    --lf-deal-x: 118px;
+    --lf-deal-y: -126px;
   }
 }

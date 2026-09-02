@@ -20,9 +20,10 @@ A **split app**, which is why the generic app template doesn't describe it:
 - API: `server/` is **copied** by `casino deploy` into `/var/www/casino-api`
   and run there by pm2 as `casino-api` (fork mode, `node index.js`) on
   `127.0.0.1:3001`. nginx proxies `/api/` to it.
-- The API binds `127.0.0.1` explicitly (`HOST` overrides). It once ran bound
-  to `::1` only behind a vhost proxying to `localhost`; see `DEPLOY.md` for
-  the one-time vhost pin.
+- The API binds `127.0.0.1` explicitly (`HOST` overrides) and mounts its
+  routes at both `/api` and `/`, so a vhost that strips the prefix still
+  works. It once ran bound to `::1` only behind a vhost proxying to
+  `localhost` with a prefix-stripping `proxy_pass`; `casino setup` pins that.
 - State outside the checkout: `/var/www/casino-api/.env` and the SQLite file at
   `/var/data/casino.db`. Both survive deploys.
 - Stub is `casino`, repo is `lucky-felt`: a stub/repo mismatch, recorded in
@@ -33,6 +34,7 @@ A **split app**, which is why the generic app template doesn't describe it:
 On the droplet, as root:
 
 ```bash
+casino setup         # once per box: symlink, .env from pm2, vhost pin, deploy
 casino deploy        # sync, build, copy server/, npm ci, pm2 restart, probe
 casino status        # HEAD, deployed API commit, pm2 state, probes, cert days
 casino logs          # tail casino-api's pm2 logs

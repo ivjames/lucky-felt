@@ -11,6 +11,10 @@
 #             Its .env and the SQLite file live outside the checkout and
 #             survive deploys.
 #
+#   casino setup                one-time on a box: symlink, seed the API .env
+#                               from the running pm2 process, deploy, THEN pin
+#                               the vhost's proxy_pass to 127.0.0.1:3001
+#                               (prefix kept). Idempotent; safe to re-run.
 #   casino deploy [--no-build]  sync checkout -> build frontend -> copy server/
 #                               into the API dir -> npm ci there -> pm2
 #                               restart (or first start) -> probe
@@ -25,6 +29,8 @@
 #   CASINO_PORT      default 3001   (the API's port; predates the 8060+ range)
 #   CASINO_API_DIR   default /var/www/casino-api
 #   CASINO_PM2_NAME  default casino-api
+#   CASINO_VHOST     default: the file under /etc/nginx/sites-available whose
+#                    server_name includes $CASINO_FQDN
 #
 # The checkout is wherever this script lives (normally /var/www/lucky-felt),
 # derived from the script's own path so the /usr/local/bin symlink resolves
@@ -50,6 +56,8 @@ usage() {
 casino — operate casino.lab980.com (static frontend + pm2 API behind nginx).
 
 Usage:
+  casino setup                 one-time on a box: symlink, seed .env from pm2,
+                               deploy, then pin the vhost proxy_pass (idempotent)
   casino deploy [--no-build]   sync checkout, build dist/, copy server/ to the
                                API dir, npm ci there, pm2 restart, probe
   casino restart               pm2 restart casino-api + probe
@@ -57,7 +65,8 @@ Usage:
   casino status                HEAD + deployed API commit + pm2 + probes + cert
 
 Env: CASINO_FQDN, CASINO_BRANCH (default main), CASINO_PORT (default 3001),
-     CASINO_API_DIR (default /var/www/casino-api), CASINO_PM2_NAME (default casino-api).
+     CASINO_API_DIR (default /var/www/casino-api), CASINO_PM2_NAME (default casino-api),
+     CASINO_VHOST (default: the sites-available file naming CASINO_FQDN).
 USAGE
 }
 
@@ -142,6 +151,8 @@ pm2_registered() { pm2 describe "$APP" >/dev/null 2>&1; }
 # emits exactly what is committed, so node_modules, .env and *.db (all
 # untracked) are never touched. Files deleted from server/ between the previous
 # and the new commit are removed first so a stale module can't linger.
+# --no-renames: with rename detection on, a renamed file is not a deletion and
+# its old path would survive in the API dir.
 sync_api() {
   local before="$1" after="$2"
   if [ "$(readlink -f "$API_DIR")" = "$ROOT/server" ]; then
@@ -150,7 +161,7 @@ sync_api() {
   fi
   mkdir -p "$API_DIR"
   if [ -n "$before" ] && [ "$before" != "$after" ]; then
-    git diff --name-only --diff-filter=D "$before" "$after" -- server/ \
+    git diff --no-renames --name-only --diff-filter=D "$before" "$after" -- server/ \
       | sed 's#^server/##' \
       | while IFS= read -r f; do
           [ -n "$f" ] && rm -f "$API_DIR/$f" && log "removed $API_DIR/$f"
@@ -164,6 +175,141 @@ sync_api() {
 # `status` reports the commit that is actually running, not one that was
 # copied in and then failed to activate.
 stamp_api() { printf '%s\n' "$1" > "$API_DIR/$STAMP"; }
+
+
+# ---- vhost ---------------------------------------------------------------
+# The API's location block must keep the /api prefix: `proxy_pass
+# http://127.0.0.1:PORT;` does, `proxy_pass http://host:PORT/;` (trailing
+# slash) strips it. The server answers both since it mounts its routes at /api
+# and /, but the convention on this box is the former, on 127.0.0.1, with the
+# forwarded headers the rate limiter needs.
+vhost_file() {
+  if [ -n "${CASINO_VHOST:-}" ]; then printf '%s' "$CASINO_VHOST"; return; fi
+  local f
+  f="$(grep -lE "^\s*server_name\s+.*\b$FQDN\b" /etc/nginx/sites-available/* 2>/dev/null | head -1 || true)"
+  printf '%s' "$f"
+}
+vhost_proxy_lines() { # every proxy_pass pointing at the API port
+  grep -nE "proxy_pass\s+http://(localhost|127\.0\.0\.1|\[::1\]):$CLI_PORT[^;]*;" "$1" 2>/dev/null || true
+}
+# For one API proxy_pass line, find its enclosing location block and report
+# whether that block already sets X-Forwarded-For. Blocks here are flat; a
+# nested `if` would only make us insert once more than needed.
+block_has_xff() { # <file> <lineno>
+  local f="$1" ln="$2" start end
+  start="$(head -n "$ln" "$f" | grep -nE '^\s*location\b.*\{' | tail -1 | cut -d: -f1)"
+  [ -n "$start" ] || start="$ln"
+  end="$(tail -n +"$ln" "$f" | grep -nE '^\s*\}' | head -1 | cut -d: -f1)"
+  end=$(( ln + ${end:-1} - 1 ))
+  sed -n "${start},${end}p" "$f" | grep -q "X-Forwarded-For"
+}
+insert_headers_after() { # <file> <lineno>
+  local f="$1" ln="$2" indent
+  indent="$(sed -n "${ln}p" "$f" | sed -E 's/^([[:space:]]*).*/\1/')"
+  sed -i "${ln}a\\
+${indent}proxy_http_version 1.1;\\
+${indent}proxy_set_header Host \$host;\\
+${indent}proxy_set_header X-Real-IP \$remote_addr;\\
+${indent}proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;\\
+${indent}proxy_set_header X-Forwarded-Proto \$scheme;" "$f"
+}
+vhost_pin() {
+  local f; f="$(vhost_file)"
+  if [ -z "$f" ] || [ ! -w "$f" ]; then warn "no writable vhost for $FQDN found (set CASINO_VHOST, or run as root); leaving nginx alone"; return; fi
+  if [ -z "$(vhost_proxy_lines "$f")" ]; then warn "$f has no proxy_pass to port $CLI_PORT; not touching it (is this the right vhost?)"; return; fi
+  local bak; bak="$f.bak.$(date +%Y%m%d%H%M%S)"
+  cp -p "$f" "$bak"
+  sed -i -E "s#(proxy_pass\s+)http://(localhost|127\.0\.0\.1|\[::1\]):$CLI_PORT[^;]*;#\1http://127.0.0.1:$CLI_PORT;#" "$f"
+  # Every API location gets the forwarded headers if its own block lacks them.
+  # Walk the matches bottom-up so insertions don't shift the lines still to do.
+  local ln
+  for ln in $(grep -nE "proxy_pass\s+http://127\.0\.0\.1:$CLI_PORT;" "$f" | cut -d: -f1 | sort -rn); do
+    block_has_xff "$f" "$ln" || insert_headers_after "$f" "$ln"
+  done
+  if cmp -s "$f" "$bak"; then log "vhost $f already pinned"; rm -f "$bak"; return; fi
+  log "vhost $f: API proxy_pass pinned to http://127.0.0.1:$CLI_PORT; (backup: $bak)"
+  if command -v nginx >/dev/null 2>&1; then
+    if nginx -t >/dev/null 2>&1; then
+      systemctl reload nginx 2>/dev/null || nginx -s reload
+      log "nginx reloaded"
+    else
+      # Never leave a config nginx rejects on disk: the running nginx survives,
+      # but the next reload or reboot would not.
+      cp -p "$bak" "$f"
+      die "nginx -t rejected the edited $f; restored it from $bak. Pin the API location by hand (proxy_pass http://127.0.0.1:$CLI_PORT; plus the forwarded headers) and run: nginx -t"
+    fi
+  else
+    warn "nginx not found on PATH; edited $f but did not reload"
+  fi
+}
+vhost_check() { # warn about anything setup would change; never edits
+  local f; f="$(vhost_file)"
+  if [ -z "$f" ] || [ ! -r "$f" ]; then warn "no readable vhost for $FQDN found (set CASINO_VHOST); skipping vhost check"; return; fi
+  local bad ln
+  bad="$(vhost_proxy_lines "$f" | grep -vE "proxy_pass\s+http://127\.0\.0\.1:$CLI_PORT;" || true)"
+  [ -n "$bad" ] && warn "$f proxies the API as:"$'\n'"$bad"$'\n'"       expected: proxy_pass http://127.0.0.1:$CLI_PORT;  (run 'casino setup' to pin it)"
+  for ln in $(grep -nE "proxy_pass\s+http://127\.0\.0\.1:$CLI_PORT;" "$f" | cut -d: -f1); do
+    block_has_xff "$f" "$ln" || warn "$f line $ln: this API location sets no X-Forwarded-For; rate limits key on 127.0.0.1 ('casino setup' adds the headers)"
+  done
+  return 0
+}
+
+# ---- .env seeding --------------------------------------------------------
+# If the API has no .env yet but a pm2 process is already running (the state
+# of the box before this CLI existed: env given on the original `pm2 start`
+# line), capture those values so nothing is lost when deploy restarts with
+# --update-env. Otherwise seed from server/.env.example.
+ENV_KEYS="PORT HOST CASINO_DB NODE_ENV SMTP_URL SMTP_HOST SMTP_PORT SMTP_SECURE SMTP_USER SMTP_PASS MAIL_FROM"
+seed_env() {
+  local envf="$API_DIR/.env"
+  mkdir -p "$API_DIR"
+  if [ -f "$envf" ]; then log ".env present at $envf (kept)"; return; fi
+  # Build the file in a temp beside the target and rename it into place only
+  # once everything succeeded: a half-written .env would be trusted next run.
+  local tmp; tmp="$(mktemp "$API_DIR/.env.XXXXXX")"; chmod 600 "$tmp"
+  if pm2_registered; then
+    log "capturing env from the running pm2 process $APP into $envf"
+    if ! pm2 jlist 2>/dev/null | ENV_KEYS="$ENV_KEYS" APP="$APP" python3 -c '
+import json,os,sys
+procs=json.load(sys.stdin)
+p=[x for x in procs if x.get("name")==os.environ["APP"]]
+e=(p[0].get("pm2_env") or {}) if p else {}
+q=lambda v: "'"'"'"+str(v).replace("'"'"'","'"'"'\\'"'"''"'"'")+"'"'"'"
+for k in os.environ["ENV_KEYS"].split():
+    if k in e and e[k] not in (None,""): print(f"{k}={q(e[k])}")
+' > "$tmp"; then
+      rm -f "$tmp"
+      die "could not read the environment of pm2 process $APP (pm2 jlist failed); nothing written to $envf"
+    fi
+    grep -q '^PORT=' "$tmp" || printf 'PORT=%s\n' "$CLI_PORT" >> "$tmp"
+    grep -q '^NODE_ENV=' "$tmp" || printf 'NODE_ENV=production\n' >> "$tmp"
+  else
+    warn "no pm2 process $APP yet; seeding $envf from server/.env.example — fill in SMTP_PASS and check CASINO_DB before relying on it"
+    cat "$ROOT/server/.env.example" > "$tmp"
+  fi
+  mv "$tmp" "$envf"
+  log "wrote $envf:"; sed -E 's/^(SMTP_PASS|SMTP_URL)=.*/\1=<redacted>/' "$envf" | sed 's/^/    /'
+  # the DB directory must exist before the API starts
+  local dbp; dbp="$(grep -E '^CASINO_DB=' "$envf" | head -1 | cut -d= -f2- | tr -d "'\"")"
+  [ -n "$dbp" ] && mkdir -p "$(dirname "$dbp")"
+}
+
+cmd_setup() {
+  cd "$ROOT"
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "$ROOT is not a git clone."
+  log "symlink /usr/local/bin/casino -> $SELF"
+  ln -sf "$SELF" /usr/local/bin/casino 2>/dev/null || warn "could not write /usr/local/bin/casino (not root?)"
+  seed_env
+  # Deploy BEFORE pinning the vhost: the pre-CLI process may be bound to ::1
+  # only, so switching nginx to 127.0.0.1 first would 502 the site for the
+  # length of the build. The new process binds 127.0.0.1 and answers both
+  # prefixes, so it works behind the old vhost; then the pin makes it right.
+  SOFT_PROBE=1 cmd_deploy "$@"
+  vhost_pin
+  sleep 1
+  log "setup done; final probe"
+  probe || die "setup finished but a health probe still fails (see above)"
+}
 
 cmd_deploy() {
   local DO_BUILD=1
@@ -213,8 +359,13 @@ cmd_deploy() {
   fi
   pm2 save
   stamp_api "$after"
+  vhost_check
   sleep 2
-  probe || die "deploy finished but a health probe failed — the rollout is NOT confirmed good (see above)"
+  if [ "${SOFT_PROBE:-0}" = "1" ]; then
+    probe || warn "a probe failed before the vhost pin; re-probing after it"
+  else
+    probe || die "deploy finished but a health probe failed — the rollout is NOT confirmed good (see above)"
+  fi
 }
 
 cmd_restart() {
@@ -247,6 +398,8 @@ e=p[0].get('pm2_env',{})
 print('%s  mode=%s  restarts=%s  cwd=%s' % (
   e.get('status'), e.get('exec_mode'), e.get('restart_time'), e.get('pm_cwd')))" 2>/dev/null \
     || printf 'unknown (pm2 not readable)\n'
+  local vf; vf="$(vhost_file)"
+  if [ -n "$vf" ]; then printf 'vhost:      %s\n' "$vf"; vhost_proxy_lines "$vf" | sed 's/^/            /'; else printf 'vhost:      (none found for %s)\n' "$FQDN"; fi
   probe || true
   local pem="/etc/letsencrypt/live/$FQDN/cert.pem"
   if [ -r "$pem" ]; then
@@ -260,6 +413,7 @@ print('%s  mode=%s  restarts=%s  cwd=%s' % (
 }
 
 case "${1:-}" in
+  setup)   shift; cmd_setup "$@";;
   deploy)  shift; cmd_deploy "$@";;
   restart) shift; cmd_restart "$@";;
   logs)    shift; cmd_logs "$@";;

@@ -332,6 +332,22 @@
   border-color: var(--lf-lose-line, var(--lf-line));
 }
 
+/* Narrow two-column boards: smaller tools, less reserved width. */
+@media (max-width: 560px) {
+  .lf-bettile--active .lf-bettile__main {
+    padding-right: 64px;
+  }
+  .lf-bettile__tools {
+    right: 6px;
+    gap: 3px;
+  }
+  .lf-bettile__tool {
+    width: 26px;
+    height: 26px;
+    font-size: 16px;
+  }
+}
+
 .lf-bettile--active {
   background: var(--lf-bet-bg);
   border-color: var(--lf-bet-line);

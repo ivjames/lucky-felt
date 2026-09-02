@@ -3,6 +3,7 @@ import * as api from "../api";
 import BrokeNotice from "../components/BrokeNotice";
 import ErrorNotice from "../components/ErrorNotice";
 import GameHeader from "../components/GameHeader";
+import BetTile from "../components/BetTile.jsx";
 import ResultBanner from "../components/ResultBanner";
 import Die from "../components/Die";
 import { CHIP_COLORS } from "../lib/constants";
@@ -20,6 +21,19 @@ export default function SicBoGame({ user, onUpdate, onBack, onAtm, onError, conf
   const [result, setResult] = useState(null);
   const [err, setErr] = useState(null);
   const totalBet = Object.values(bets).reduce((a, b) => a + b, 0);
+  const canAdd = balance - totalBet >= chipVal;
+  const addBet = (id) => {
+    if (rolling || !canAdd) return;
+    setBets((p) => ({ ...p, [id]: (p[id] || 0) + chipVal }));
+  };
+  const removeBet = (id) => {
+    if (rolling) return;
+    setBets((p) => {
+      const next = { ...p };
+      delete next[id];
+      return next;
+    });
+  };
   const broke = balance < 1;
 
   async function roll() {
@@ -97,38 +111,21 @@ export default function SicBoGame({ user, onUpdate, onBack, onAtm, onError, conf
           ) : (
             <>
               <h2 className="lf-section-title">Place your bets</h2>
-              <p className="lf-section-hint">Tap a bet to place your chip on it; tap it again to take it off.</p>
+              <p className="lf-section-hint">Tap a bet to place a chip. On a placed bet, + adds another chip and × takes it off.</p>
               <div className="lf-sicbo__board">
                 {config.sicbo.map((b) => (
-                  <button
+                  <BetTile
                     key={b.id}
-                    className={`lf-bettile${bets[b.id] ? " lf-bettile--active" : ""}`}
-                    aria-pressed={!!bets[b.id]}
-                    onClick={() => {
-                      if (rolling) return;
-                      // Toggle: a tap places the current chip, a second tap
-                      // takes the bet off again. To change a stake, tap it
-                      // off, pick another chip, tap it on.
-                      if (bets[b.id]) {
-                        setBets((p) => {
-                          const next = { ...p };
-                          delete next[b.id];
-                          return next;
-                        });
-                      } else if (balance - totalBet >= chipVal) {
-                        setBets((p) => ({ ...p, [b.id]: chipVal }));
-                      }
-                    }}
-                  >
-                    <span className="lf-bettile__label">{b.label}</span>
-                    <span className="lf-bettile__meta">
-                      {bets[b.id] > 0 ? (
-                        <span className="lf-bettile__stake">${bets[b.id]} on {b.payout}:1</span>
-                      ) : (
-                        `pays ${b.payout}:1`
-                      )}
-                    </span>
-                  </button>
+                    name={b.label}
+                    label={b.label}
+                    payoutText={`${b.payout}:1`}
+                    stake={bets[b.id] || 0}
+                    chipVal={chipVal}
+                    disabled={rolling}
+                    canAdd={canAdd}
+                    onAdd={() => addBet(b.id)}
+                    onRemove={() => removeBet(b.id)}
+                  />
                 ))}
               </div>
               <div className="lf-total" aria-live="polite">

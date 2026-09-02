@@ -88,6 +88,12 @@
   margin-top: 20px;
 }
 
+.lf-section-hint {
+  margin: -6px 0 12px;
+  font-size: 13px;
+  color: var(--lf-text-dim);
+}
+
 /* ---- Panel ---- */
 .lf-panel {
   background: linear-gradient(150deg, var(--lf-surface-2), var(--lf-surface-3));
@@ -256,12 +262,29 @@
    `--active` is the "your money is on this" state and is deliberately amber,
    never green — green is reserved for a result you won. */
 .lf-bettile {
+  position: relative;
   background: var(--lf-surface-3);
   border: 1px solid var(--lf-line);
   border-radius: var(--lf-radius-sm);
+  min-height: 56px;
+  display: flex;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.lf-bettile:hover {
+  border-color: var(--lf-gold-soft);
+}
+
+/* The whole face is the "place a chip" control; the wrapper carries the look. */
+.lf-bettile__main {
+  flex: 1;
+  background: none;
+  border: 0;
+  border-radius: inherit;
   padding: 10px 12px;
   cursor: pointer;
   color: var(--lf-text);
+  font: inherit;
   font-size: 14px;
   font-weight: 600;
   display: flex;
@@ -269,13 +292,60 @@
   align-items: flex-start;
   justify-content: center;
   gap: 4px;
-  min-height: 56px;
   text-align: left;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  min-width: 0;
 }
 
-.lf-bettile:hover:not(:disabled) {
-  border-color: var(--lf-gold-soft);
+.lf-bettile--active .lf-bettile__main {
+  padding-right: 76px; /* room for the + and × tools */
+}
+
+.lf-bettile__tools {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 4px;
+}
+
+.lf-bettile__tool {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--lf-bet-line);
+  background: var(--lf-surface-2);
+  color: var(--lf-text);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.lf-bettile__tool--remove {
+  color: var(--lf-lose);
+  border-color: var(--lf-lose-line, var(--lf-line));
+}
+
+/* Narrow two-column boards: smaller tools, less reserved width. */
+@media (max-width: 560px) {
+  .lf-bettile--active .lf-bettile__main {
+    padding-right: 64px;
+  }
+  .lf-bettile__tools {
+    right: 6px;
+    gap: 3px;
+  }
+  .lf-bettile__tool {
+    width: 26px;
+    height: 26px;
+    font-size: 16px;
+  }
 }
 
 .lf-bettile--active {

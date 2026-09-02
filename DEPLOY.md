@@ -41,7 +41,11 @@ What `deploy` does, in order:
 4. `npm ci --omit=dev` in the API dir.
 5. Sources the API `.env`, then `pm2 restart casino-api --update-env` (or
    `pm2 start` if the process doesn't exist yet), `pm2 save`.
-6. Probes `/api/health` locally and publicly, and the public `/`.
+6. Probes `/api/health` locally and publicly, and the public `/`. **Any probe
+   that isn't HTTP 200 makes `deploy` (and `restart`) exit nonzero** with a
+   line saying which of the three failed, so a broken rollout can't pass as
+   a success to an operator or a script. `status` reports the same probes
+   without failing.
 
 **Never edit files in `/var/www/casino-api` by hand** except `.env`. It is a
 copy; the next deploy overwrites it from git.

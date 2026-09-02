@@ -35,7 +35,7 @@ SELF="$(readlink -f "$0")"
 ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
 FQDN="${CASINO_FQDN:-casino.lab980.com}"
 BRANCH="${CASINO_BRANCH:-main}"
-PORT="${CASINO_PORT:-3001}"
+CLI_PORT="${CASINO_PORT:-3001}"   # what the CLI probes; the API itself reads PORT from .env
 API_DIR="${CASINO_API_DIR:-/var/www/casino-api}"
 APP="${CASINO_PM2_NAME:-casino-api}"
 STAMP=".deployed-commit"   # written into $API_DIR so `status` can say what is live
@@ -70,6 +70,11 @@ load_env() {
     # shellcheck disable=SC1091
     . "$API_DIR/.env"
     set +a
+    # The port lives in three places: the vhost's proxy_pass, the API's .env,
+    # and this CLI's probe. A mismatch is a 502 that looks like a dead app.
+    if [ -n "${PORT:-}" ] && [ "$PORT" != "$CLI_PORT" ]; then
+      warn ".env sets PORT=$PORT but this CLI probes $CLI_PORT (CASINO_PORT) — nginx's proxy_pass must match the .env value"
+    fi
   fi
 }
 
@@ -78,13 +83,19 @@ probe() {
   # process, nginx's /api/ proxy, and nginx's static root. Local /api/health
   # failing points at the app; local OK but public /api/ failing points at the
   # proxy; public / failing points at the static root or the vhost itself.
-  local l p s
-  l="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:$PORT/api/health" || true)"
+  # Returns nonzero if any probe is not HTTP 200, so deploy/restart can fail
+  # instead of printing a broken rollout and exiting 0.
+  local l p s fail=0
+  l="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:$CLI_PORT/api/health" || true)"
   p="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$FQDN/api/health" || true)"
   s="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$FQDN/" || true)"
-  printf 'api local:  http://127.0.0.1:%s/api/health  ->  HTTP %s\n' "$PORT" "${l:-unreachable}"
-  printf 'api public: https://%s/api/health  ->  HTTP %s\n' "$FQDN" "${p:-unreachable}"
-  printf 'site:       https://%s/  ->  HTTP %s\n' "$FQDN" "${s:-unreachable}"
+  printf 'api local:  http://127.0.0.1:%s/api/health  ->  HTTP %s\n' "$CLI_PORT" "${l:-000}"
+  printf 'api public: https://%s/api/health  ->  HTTP %s\n' "$FQDN" "${p:-000}"
+  printf 'site:       https://%s/  ->  HTTP %s\n' "$FQDN" "${s:-000}"
+  [ "$l" = "200" ] || { fail=1; warn "local API probe failed: $APP is not serving /api/health on 127.0.0.1:$CLI_PORT (check 'casino logs')"; }
+  [ "$p" = "200" ] || { fail=1; warn "public API probe failed: nginx is not proxying /api/ to a healthy upstream, or DNS/TLS for $FQDN is off"; }
+  [ "$s" = "200" ] || { fail=1; warn "public site probe failed: nginx is not serving dist/ for $FQDN"; }
+  return "$fail"
 }
 
 pm2_registered() { pm2 describe "$APP" >/dev/null 2>&1; }
@@ -155,7 +166,7 @@ cmd_deploy() {
   fi
   pm2 save
   sleep 2
-  probe
+  probe || die "deploy finished but a health probe failed — the rollout is NOT confirmed good (see above)"
 }
 
 cmd_restart() {
@@ -164,7 +175,7 @@ cmd_restart() {
   log "pm2 restart $APP"
   pm2 restart "$APP" --update-env
   sleep 2
-  probe
+  probe || die "restart finished but a health probe failed (see above)"
 }
 
 cmd_logs() { pm2 logs "$APP" "$@"; }
@@ -188,7 +199,7 @@ e=p[0].get('pm2_env',{})
 print('%s  mode=%s  restarts=%s  cwd=%s' % (
   e.get('status'), e.get('exec_mode'), e.get('restart_time'), e.get('pm_cwd')))" 2>/dev/null \
     || printf 'unknown (pm2 not readable)\n'
-  probe
+  probe || true
   local pem="/etc/letsencrypt/live/$FQDN/cert.pem"
   if [ -r "$pem" ]; then
     local end days

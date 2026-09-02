@@ -97,6 +97,7 @@ export default function SicBoGame({ user, onUpdate, onBack, onAtm, onError, conf
           ) : (
             <>
               <h2 className="lf-section-title">Place your bets</h2>
+              <p className="lf-section-hint">Tap a bet to place your chip on it; tap it again to take it off.</p>
               <div className="lf-sicbo__board">
                 {config.sicbo.map((b) => (
                   <button
@@ -104,8 +105,18 @@ export default function SicBoGame({ user, onUpdate, onBack, onAtm, onError, conf
                     className={`lf-bettile${bets[b.id] ? " lf-bettile--active" : ""}`}
                     aria-pressed={!!bets[b.id]}
                     onClick={() => {
-                      if (!rolling && balance - totalBet >= chipVal) {
-                        setBets((p) => ({ ...p, [b.id]: (p[b.id] || 0) + chipVal }));
+                      if (rolling) return;
+                      // Toggle: a tap places the current chip, a second tap
+                      // takes the bet off again. To change a stake, tap it
+                      // off, pick another chip, tap it on.
+                      if (bets[b.id]) {
+                        setBets((p) => {
+                          const next = { ...p };
+                          delete next[b.id];
+                          return next;
+                        });
+                      } else if (balance - totalBet >= chipVal) {
+                        setBets((p) => ({ ...p, [b.id]: chipVal }));
                       }
                     }}
                   >

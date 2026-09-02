@@ -122,6 +122,7 @@ export default function RouletteGame({ user, onUpdate, onBack, onAtm, onError, c
           ) : (
             <>
               <h2 className="lf-section-title lf-section-title--spaced">Place your bets</h2>
+              <p className="lf-section-hint">Tap a bet to place your chip on it; tap it again to take it off.</p>
               <div className="lf-roulette__board">
                 {config.roulette.map((b) => (
                   <button
@@ -129,8 +130,18 @@ export default function RouletteGame({ user, onUpdate, onBack, onAtm, onError, c
                     className={`lf-bettile${bets[b.id] ? " lf-bettile--active" : ""}`}
                     aria-pressed={!!bets[b.id]}
                     onClick={() => {
-                      if (!spinning && balance - totalBet >= chipVal) {
-                        setBets((p) => ({ ...p, [b.id]: (p[b.id] || 0) + chipVal }));
+                      if (spinning) return;
+                      // Toggle: a tap places the current chip, a second tap
+                      // takes the bet off again. To change a stake, tap it
+                      // off, pick another chip, tap it on.
+                      if (bets[b.id]) {
+                        setBets((p) => {
+                          const next = { ...p };
+                          delete next[b.id];
+                          return next;
+                        });
+                      } else if (balance - totalBet >= chipVal) {
+                        setBets((p) => ({ ...p, [b.id]: chipVal }));
                       }
                     }}
                   >

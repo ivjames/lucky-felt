@@ -88,6 +88,12 @@
   margin-top: 20px;
 }
 
+.lf-section-hint {
+  margin: -6px 0 12px;
+  font-size: 13px;
+  color: var(--lf-text-dim);
+}
+
 /* ---- Panel ---- */
 .lf-panel {
   background: linear-gradient(150deg, var(--lf-surface-2), var(--lf-surface-3));

@@ -3,6 +3,7 @@ import BrandMark from "../components/icons/BrandMark";
 import GameIcon from "../components/icons/GameIcon";
 import { AlertIcon, AtmIcon } from "../components/icons/UiIcons";
 import { ATM_AMOUNT, ATM_COOLDOWN_MS, GAMES } from "../lib/constants";
+import { useCountUp } from "../lib/useCountUp";
 import "./Lobby.css";
 
 export default function Lobby({ user, onGame, onAtm, onLogout }) {
@@ -15,6 +16,9 @@ export default function Lobby({ user, onGame, onAtm, onLogout }) {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+  // Display only: the pill rolls up to a top-up rather than jumping. The
+  // aria-label below stays on the authoritative figure.
+  const rolling = useCountUp(user.balance);
   const canAtm = now - user.lastAtm > ATM_COOLDOWN_MS;
   const cooldownMin = Math.max(0, Math.ceil((ATM_COOLDOWN_MS - (now - user.lastAtm)) / 60000));
   const broke = user.balance < 1;
@@ -34,7 +38,7 @@ export default function Lobby({ user, onGame, onAtm, onLogout }) {
                 Balance
               </span>
               <span className="lf-balance__value" aria-hidden="true">
-                ${user.balance.toFixed(2)}
+                ${rolling.toFixed(2)}
               </span>
             </div>
             <button

@@ -1,12 +1,47 @@
-.lf-die {
-  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+/* ---- One die -------------------------------------------------------------
+   The slot is the die's place on the tray: it holds the size, floats the die
+   above the felt and (through `.lf-contact`) draws the shadow it casts. The
+   svg inside is the only thing that moves. */
+.lf-die-slot {
+  position: relative;
   flex: none;
+  display: block;
+  transform: translateZ(calc(var(--lf-lift) + 4px));
+  /* The die's own perspective, so a cube tumbling inside it still reads as a
+     cube even though the tray around it is only gently pitched. */
+  perspective: 420px;
 }
 
+.lf-die {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+}
+
+/* Three tumbles, dealt out by position, each started a beat before the last. */
 .lf-die--rolling {
-  animation: lf-tumble 0.42s ease-in-out infinite;
+  animation: lf-tumble-a 0.62s linear infinite;
+  animation-delay: calc(var(--lf-die-i, 0) * -0.13s);
 }
 
+.lf-die-slot:nth-child(2) .lf-die--rolling {
+  animation-name: lf-tumble-b;
+  animation-duration: 0.55s;
+}
+
+.lf-die-slot:nth-child(3) .lf-die--rolling {
+  animation-name: lf-tumble-c;
+  animation-duration: 0.68s;
+}
+
+/* Arriving: a drop, a bounce and a settle, staggered across the tray. */
+.lf-die--landed {
+  animation: lf-die-land 0.46s cubic-bezier(0.3, 0.9, 0.35, 1) both;
+  animation-delay: calc(var(--lf-die-i, 0) * 80ms);
+}
+
+/* ---- The tray ------------------------------------------------------------
+   Pitched away from the viewer by the stage wrapper it sits in. */
 .lf-dice-tray {
   display: flex;
   gap: clamp(12px, 3vw, 20px);
@@ -16,8 +51,19 @@
   border-radius: var(--lf-radius);
   background:
     radial-gradient(80% 120% at 50% 0%, rgba(255, 255, 255, 0.05), transparent 70%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 4px),
     linear-gradient(160deg, #1b4128, #0d2617);
   border: 1px solid var(--lf-line);
-  box-shadow: inset 0 2px 18px rgba(0, 0, 0, 0.45);
+  box-shadow:
+    inset 0 2px 18px rgba(0, 0, 0, 0.45),
+    0 18px 28px -16px rgba(0, 0, 0, 0.8);
   width: 100%;
+}
+
+/* The rail around the tray: a lit lip at the top, dropping into shadow. */
+.lf-dice-stage .lf-dice-tray {
+  border-width: 3px;
+  border-style: solid;
+  border-color: rgba(255, 226, 155, 0.32) rgba(0, 0, 0, 0.4) rgba(0, 0, 0, 0.55) rgba(0, 0, 0, 0.4);
 }

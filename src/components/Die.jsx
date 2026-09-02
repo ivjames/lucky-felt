@@ -39,28 +39,33 @@ const PIPS = {
 
 /**
  * One die. `value` is 1–6, or null before the first roll. While `rolling` the
- * face cycles and the die tumbles; both are suppressed for viewers who asked
- * for reduced motion. Decorative — the dice tray around it owns the label.
+ * face cycles and the die tumbles in three dimensions; when it stops it drops
+ * and bounces onto the tray. `index` picks one of three tumbles and offsets the
+ * timing, so two or three dice in a tray are never in phase. All of it is
+ * suppressed for viewers who asked for reduced motion, and none of it chooses a
+ * pip: the settled value is whatever the server sent. Decorative — the dice
+ * tray around it owns the label.
  */
-export default function Die({ value, rolling = false, size = 72 }) {
+export default function Die({ value, rolling = false, size = 72, index = 0 }) {
   const reduced = useReducedMotion();
   const [face, setFace] = useState(value ?? 1);
 
   useEffect(() => {
     if (!rolling) return undefined;
     if (reduced) return undefined;
-    const t = setInterval(() => setFace(1 + Math.floor(Math.random() * 6)), 90);
+    // Off-phase cycling as well, so the faces don't flicker in lockstep.
+    const t = setInterval(() => setFace(1 + Math.floor(Math.random() * 6)), 90 + index * 17);
     return () => clearInterval(t);
-  }, [rolling, reduced]);
+  }, [rolling, reduced, index]);
 
   // Not rolling: the settled value wins. Rolling: the cycling face.
   const shown = rolling ? face : (value ?? face);
+  const landed = !rolling && value != null;
   const u = 32 / 4;
 
-  return (
+  const die = (
     <svg
-      className={`lf-die${rolling ? " lf-die--rolling" : ""}`}
-      style={{ width: size, height: size }}
+      className={`lf-die${rolling ? " lf-die--rolling" : ""}${landed ? " lf-die--landed" : ""}`}
       viewBox="0 0 32 32"
       aria-hidden="true"
       focusable="false"
@@ -81,5 +86,17 @@ export default function Die({ value, rolling = false, size = 72 }) {
         <circle key={i} cx={cx * u} cy={cy * u} r="2.9" fill="var(--lf-ink)" />
       ))}
     </svg>
+  );
+
+  // The slot floats the die above the tray and casts its contact shadow onto
+  // it; the die inside does the tumbling.
+  return (
+    <span
+      className="lf-die-slot lf-contact"
+      style={{ width: size, height: size, "--lf-die-i": index }}
+      aria-hidden="true"
+    >
+      {die}
+    </span>
   );
 }

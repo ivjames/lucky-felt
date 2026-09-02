@@ -1,15 +1,32 @@
 .lf-result {
+  position: relative;
+  overflow: hidden;
   text-align: center;
   padding: 15px 18px;
   border-radius: var(--lf-radius);
   margin-top: 16px;
   border: 1px solid transparent;
+  /* The banner is mounted fresh for each result, so this runs once, then. */
+  animation: lf-pop-in 0.26s cubic-bezier(0.2, 0.9, 0.3, 1) both;
 }
 
 .lf-result--win {
   background: var(--lf-win-bg);
   border-color: var(--lf-win-line);
   color: var(--lf-win);
+}
+
+/* One sheen across a win, and only a win — a loss stays quiet. */
+.lf-result--win::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -40%;
+  width: 40%;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: lf-sheen 0.85s ease-out 0.16s 1 both;
 }
 
 .lf-result--push {

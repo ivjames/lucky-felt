@@ -1,3 +1,32 @@
+/* ---- The wheel stage ----------------------------------------------------
+   Wheel, "ball landed on" readout and recent spins ride one gently pitched
+   surface. Nothing on it is interactive. */
+.lf-roulette__stage {
+  padding-bottom: 18px;
+}
+
+.lf-roulette__surface {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+/* The wheel floats a little off the surface and drops a shadow onto it. */
+.lf-roulette__wheelwrap {
+  display: flex;
+  justify-content: center;
+  transform: translateZ(calc(var(--lf-lift) + 6px));
+}
+
+.lf-roulette__wheelwrap::after {
+  left: 10%;
+  right: 10%;
+  bottom: 2px;
+  height: 26px;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.62), transparent);
+}
+
 .lf-roulette__callout {
   margin-top: 18px;
   color: var(--lf-text);
@@ -10,6 +39,11 @@
 .lf-roulette__history {
   width: 100%;
   margin-top: 22px;
+}
+
+/* Recent spins sit flat on the felt, a touch above it. */
+.lf-roulette__pip {
+  transform: translateZ(3px);
 }
 
 .lf-roulette__history-title {
@@ -61,4 +95,10 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .lf-roulette__stage {
+    padding-inline: 8px;
+  }
 }

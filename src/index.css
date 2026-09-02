@@ -59,6 +59,16 @@
   --lf-pocket-black: #1a201c;
   --lf-pocket-green: #1a7a46;
 
+  /* 2.5D stage — how far a play surface is pitched away from the viewer, and
+     how hard the perspective on it bites. `--lf-pitch` is the felt/tray angle,
+     `--lf-pitch-soft` the gentler one used where a lot of text sits on the
+     surface. `--lf-lift` is how far a raised thing (card, die, chip) floats
+     above it. All three shrink on narrow screens — see the override below. */
+  --lf-persp: 1200px;
+  --lf-pitch: 9deg;
+  --lf-pitch-soft: 6deg;
+  --lf-lift: 10px;
+
   /* Layout */
   --lf-container: 1040px;
   --lf-gap: 16px;
@@ -76,6 +86,17 @@
     "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
   color-scheme: dark;
+}
+
+/* Phones sit closer to the glass and have less width to spare: a shallower
+   pitch keeps the near edge inside the page and the type square-on. */
+@media (max-width: 560px) {
+  :root {
+    --lf-persp: 900px;
+    --lf-pitch: 5deg;
+    --lf-pitch-soft: 3.5deg;
+    --lf-lift: 6px;
+  }
 }
 
 * {
@@ -143,34 +164,211 @@ svg {
   border-radius: 4px;
 }
 
-/* ---- Shared motion ---- */
-@keyframes lf-reel-blur {
-  0%,
-  100% {
-    filter: blur(0);
-    transform: translateY(0);
+/* ---- Shared motion ------------------------------------------------------
+   Every animation here is presentation only: nothing below decides a card, a
+   pip, a pocket or a payout. The values being animated *towards* always come
+   from the server response. Transforms and opacity only, so none of it lays
+   the page out twice. */
+
+/* A card leaves the deck at the table's top-right, arcs over and settles.
+   `--lf-deal-x/y/rot` let a row aim its own throw. */
+@keyframes lf-deal-in {
+  0% {
+    opacity: 0;
+    transform: translate3d(var(--lf-deal-x, 200px), var(--lf-deal-y, -104px), 46px)
+      rotate(var(--lf-deal-rot, 24deg)) scale(0.86);
   }
-  50% {
-    filter: blur(1.4px);
-    transform: translateY(-3px);
+  35% {
+    opacity: 1;
+  }
+  76% {
+    transform: translate3d(0, -5px, calc(var(--lf-lift, 0px) + 16px)) rotate(-2.5deg) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    /* Lands ON the surface, not in it — the card keeps its elevation. */
+    transform: translate3d(0, 0, var(--lf-lift, 0px)) rotate(0deg) scale(1);
   }
 }
 
-@keyframes lf-tumble {
+/* A card turning over as it lands — paired with backface-visibility so the
+   house back is genuinely on the other side. */
+@keyframes lf-flip-in {
   0% {
-    transform: rotate(0deg) translateY(0);
-  }
-  25% {
-    transform: rotate(-14deg) translateY(-7px);
-  }
-  50% {
-    transform: rotate(9deg) translateY(0);
-  }
-  75% {
-    transform: rotate(16deg) translateY(-4px);
+    transform: rotateY(-104deg);
   }
   100% {
-    transform: rotate(0deg) translateY(0);
+    transform: rotateY(0deg);
+  }
+}
+
+/* A chip dropped onto a bet tile: falls, flattens, settles. */
+@keyframes lf-chip-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-11px) scale(0.35);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(1px) scale(1.24);
+  }
+  78% {
+    transform: translateY(0) scale(0.93);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Three tumbles so two or three dice in a tray are never in phase. A die is a
+   flat drawing, so the swing on each axis stays inside ±70°: past that a face
+   goes edge-on and a die with no thickness simply vanishes. The spin around Z
+   carries the tumble, the two rocks make it three-dimensional, and the faces
+   cycling underneath do the rest. */
+@keyframes lf-tumble-a {
+  0% {
+    transform: rotateZ(0deg) rotateX(0deg) rotateY(0deg) translateY(0);
+  }
+  25% {
+    transform: rotateZ(96deg) rotateX(62deg) rotateY(-38deg) translateY(-9px);
+  }
+  50% {
+    transform: rotateZ(184deg) rotateX(-14deg) rotateY(54deg) translateY(-2px);
+  }
+  75% {
+    transform: rotateZ(272deg) rotateX(-58deg) rotateY(22deg) translateY(-8px);
+  }
+  100% {
+    transform: rotateZ(360deg) rotateX(0deg) rotateY(0deg) translateY(0);
+  }
+}
+
+@keyframes lf-tumble-b {
+  0% {
+    transform: rotateZ(0deg) rotateX(0deg) rotateY(0deg) translateY(0);
+  }
+  30% {
+    transform: rotateZ(-104deg) rotateX(-46deg) rotateY(58deg) translateY(-6px);
+  }
+  60% {
+    transform: rotateZ(-212deg) rotateX(50deg) rotateY(-30deg) translateY(-11px);
+  }
+  100% {
+    transform: rotateZ(-360deg) rotateX(0deg) rotateY(0deg) translateY(0);
+  }
+}
+
+@keyframes lf-tumble-c {
+  0% {
+    transform: rotateZ(0deg) rotateX(0deg) rotateY(0deg) translateY(0);
+  }
+  22% {
+    transform: rotateZ(84deg) rotateX(-64deg) rotateY(-24deg) translateY(-12px);
+  }
+  55% {
+    transform: rotateZ(198deg) rotateX(28deg) rotateY(66deg) translateY(-3px);
+  }
+  80% {
+    transform: rotateZ(292deg) rotateX(56deg) rotateY(-44deg) translateY(-9px);
+  }
+  100% {
+    transform: rotateZ(360deg) rotateX(0deg) rotateY(0deg) translateY(0);
+  }
+}
+
+/* …and the bounce once it stops tumbling. */
+@keyframes lf-die-land {
+  0% {
+    transform: translateY(-13px) rotateZ(-9deg) scale(1.06);
+  }
+  45% {
+    transform: translateY(0) rotateZ(3deg) scale(0.96);
+  }
+  68% {
+    transform: translateY(-4px) rotateZ(-1.5deg) scale(1.02);
+  }
+  100% {
+    transform: translateY(0) rotateZ(0deg) scale(1);
+  }
+}
+
+/* The roulette ball runs the track the other way round from the wheel. */
+@keyframes lf-ball-orbit {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+/* A reel strip is the loop sequence twice over, so -50% is seamless. */
+@keyframes lf-strip-roll {
+  to {
+    transform: translateY(-50%);
+  }
+}
+
+/* A reel arriving at its symbol, with a touch of overshoot. */
+@keyframes lf-reel-settle {
+  0% {
+    transform: translateY(-38%);
+  }
+  62% {
+    transform: translateY(4%);
+  }
+  84% {
+    transform: translateY(-1.5%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* Result banner, and the sheen that crosses a winning one. */
+@keyframes lf-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes lf-sheen {
+  0% {
+    opacity: 0;
+    transform: translateX(-130%) skewX(-18deg);
+  }
+  14% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(240%) skewX(-18deg);
+  }
+}
+
+/* A won payline breathing, and a button taking a press. */
+@keyframes lf-win-glow {
+  0%,
+  100% {
+    opacity: 0.28;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes lf-press {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  40% {
+    transform: translateY(3px) scale(0.985);
+  }
+  100% {
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -186,7 +384,11 @@ svg {
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    /* A staggered deal would otherwise sit at frame zero for its whole delay
+       — off the table and invisible — before snapping in. */
+    animation-delay: -1ms !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
 }

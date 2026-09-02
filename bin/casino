@@ -142,6 +142,8 @@ pm2_registered() { pm2 describe "$APP" >/dev/null 2>&1; }
 # emits exactly what is committed, so node_modules, .env and *.db (all
 # untracked) are never touched. Files deleted from server/ between the previous
 # and the new commit are removed first so a stale module can't linger.
+# --no-renames: with rename detection on, a renamed file is not a deletion and
+# its old path would survive in the API dir.
 sync_api() {
   local before="$1" after="$2"
   if [ "$(readlink -f "$API_DIR")" = "$ROOT/server" ]; then
@@ -150,7 +152,7 @@ sync_api() {
   fi
   mkdir -p "$API_DIR"
   if [ -n "$before" ] && [ "$before" != "$after" ]; then
-    git diff --name-only --diff-filter=D "$before" "$after" -- server/ \
+    git diff --no-renames --name-only --diff-filter=D "$before" "$after" -- server/ \
       | sed 's#^server/##' \
       | while IFS= read -r f; do
           [ -n "$f" ] && rm -f "$API_DIR/$f" && log "removed $API_DIR/$f"

@@ -160,8 +160,8 @@ e=(p[0].get("pm2_env") or {}) if p else {}
 print(e.get("pm_exec_path") or "")' 2>/dev/null || true
 }
 resolve_api_dir() {
-  [ -n "${CASINO_API_DIR:-}" ] && return   # explicit override wins
-  pm2_registered || return                 # first deploy: nothing to learn from yet
+  if [ -n "${CASINO_API_DIR:-}" ]; then return 0; fi   # explicit override wins
+  if ! pm2_registered; then return 0; fi              # first deploy: nothing to learn from yet
   local sp; sp="$(pm2_script_path)"
   # A registered process whose script path we cannot read is exactly the
   # case where guessing the directory restarts the wrong code; don't guess.

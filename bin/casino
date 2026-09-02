@@ -147,6 +147,50 @@ probe() {
 
 pm2_registered() { pm2 describe "$APP" >/dev/null 2>&1; }
 
+# Where does pm2 actually run the API from? If the process exists, its script
+# path is the truth about the box; the default /var/www/casino-api is only a
+# guess. Copying server/ anywhere else restarts a process that never sees it.
+pm2_script_path() {
+  pm2 jlist 2>/dev/null | APP="$APP" python3 -c '
+import json,os,sys
+try: procs=json.load(sys.stdin)
+except Exception: procs=[]
+p=[x for x in procs if x.get("name")==os.environ["APP"]]
+e=(p[0].get("pm2_env") or {}) if p else {}
+print(e.get("pm_exec_path") or "")' 2>/dev/null || true
+}
+# resolve_api_dir [soft]: mutating commands (deploy/restart/setup) die when
+# the directory can't be inferred; `status` passes "soft" and only warns, so
+# a pm2 metadata problem is something status can report rather than a reason
+# it refuses to run.
+resolve_api_dir() {
+  local soft="${1:-}" msg
+  if [ -n "${CASINO_API_DIR:-}" ]; then return 0; fi   # explicit override wins
+  if ! pm2_registered; then return 0; fi              # first deploy: nothing to learn from yet
+  local sp; sp="$(pm2_script_path)"
+  # A registered process whose script path we cannot read is exactly the
+  # case where guessing the directory restarts the wrong code; don't guess.
+  if [ -z "$sp" ]; then
+    msg="pm2 has a process named $APP but its script path could not be read from 'pm2 jlist'. Set CASINO_API_DIR to the directory holding the API's index.js"
+    if [ "$soft" = "soft" ]; then warn "$msg"; return 0; fi
+    die "$msg, then re-run."
+  fi
+  # Only an index.js tells us where the API lives. A wrapper (npm, a shell
+  # script, an ecosystem entry) says nothing about the directory, and copying
+  # server/ beside it would clobber whatever is there.
+  case "$(basename "$sp")" in
+    index.js) ;;
+    *) msg="pm2 runs $APP as $sp, not an index.js, so the API directory can't be inferred. Set CASINO_API_DIR to the directory holding the API's index.js"
+       if [ "$soft" = "soft" ]; then warn "$msg"; return 0; fi
+       die "$msg, then re-run.";;
+  esac
+  local d; d="$(dirname "$sp")"
+  if [ "$(readlink -f "$d")" != "$(readlink -f "$API_DIR")" ]; then
+    warn "pm2 runs $APP from $sp, not $API_DIR/index.js — using $d as the API dir (set CASINO_API_DIR to override)"
+    API_DIR="$d"
+  fi
+}
+
 # Copy the tracked contents of server/ at HEAD into $API_DIR. `git archive`
 # emits exactly what is committed, so node_modules, .env and *.db (all
 # untracked) are never touched. Files deleted from server/ between the previous
@@ -183,10 +227,15 @@ stamp_api() { printf '%s\n' "$1" > "$API_DIR/$STAMP"; }
 # slash) strips it. The server answers both since it mounts its routes at /api
 # and /, but the convention on this box is the former, on 127.0.0.1, with the
 # forwarded headers the rate limiter needs.
+# Always the real file: a sites-enabled entry is a symlink, and `sed -i` on a
+# symlink replaces it with a regular file, leaving the canonical config that
+# nginx and certbot use untouched.
 vhost_file() {
-  if [ -n "${CASINO_VHOST:-}" ]; then printf '%s' "$CASINO_VHOST"; return; fi
-  local f
-  f="$(grep -lE "^\s*server_name\s+.*\b$FQDN\b" /etc/nginx/sites-available/* 2>/dev/null | head -1 || true)"
+  local f="${CASINO_VHOST:-}"
+  if [ -z "$f" ]; then
+    f="$(grep -lE "^\s*server_name\s+.*\b$FQDN\b" /etc/nginx/sites-available/* /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*.conf 2>/dev/null | head -1 || true)"
+  fi
+  [ -n "$f" ] && f="$(readlink -f "$f")"
   printf '%s' "$f"
 }
 vhost_proxy_lines() { # every proxy_pass pointing at the API port
@@ -216,7 +265,12 @@ ${indent}proxy_set_header X-Forwarded-Proto \$scheme;" "$f"
 vhost_pin() {
   local f; f="$(vhost_file)"
   if [ -z "$f" ] || [ ! -w "$f" ]; then warn "no writable vhost for $FQDN found (set CASINO_VHOST, or run as root); leaving nginx alone"; return; fi
-  if [ -z "$(vhost_proxy_lines "$f")" ]; then warn "$f has no proxy_pass to port $CLI_PORT; not touching it (is this the right vhost?)"; return; fi
+  if [ -z "$(vhost_proxy_lines "$f")" ]; then
+    warn "$f has no proxy_pass to a loopback host on port $CLI_PORT; not touching it. Its proxy lines are:"
+    grep -nE "proxy_pass|upstream" "$f" | sed 's/^/       /' >&2 || true
+    warn "if the API location uses an upstream name, pin it by hand: proxy_pass http://127.0.0.1:$CLI_PORT; (no trailing slash)"
+    return
+  fi
   local bak; bak="$f.bak.$(date +%Y%m%d%H%M%S)"
   cp -p "$f" "$bak"
   sed -i -E "s#(proxy_pass\s+)http://(localhost|127\.0\.0\.1|\[::1\]):$CLI_PORT[^;]*;#\1http://127.0.0.1:$CLI_PORT;#" "$f"
@@ -296,6 +350,7 @@ for k in os.environ["ENV_KEYS"].split():
 
 cmd_setup() {
   cd "$ROOT"
+  resolve_api_dir
   git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "$ROOT is not a git clone."
   log "symlink /usr/local/bin/casino -> $SELF"
   ln -sf "$SELF" /usr/local/bin/casino 2>/dev/null || warn "could not write /usr/local/bin/casino (not root?)"
@@ -312,6 +367,7 @@ cmd_setup() {
 }
 
 cmd_deploy() {
+  resolve_api_dir
   local DO_BUILD=1
   [ "${1:-}" = "--no-build" ] && DO_BUILD=0
   cd "$ROOT"
@@ -369,6 +425,7 @@ cmd_deploy() {
 }
 
 cmd_restart() {
+  resolve_api_dir
   pm2_registered || die "pm2 has no process named $APP — run 'casino deploy' first"
   load_env
   log "pm2 restart $APP"
@@ -381,6 +438,7 @@ cmd_logs() { pm2 logs "$APP" "$@"; }
 
 cmd_status() {
   cd "$ROOT"
+  resolve_api_dir soft
   printf 'checkout:   %s  %s\n' "$(git rev-parse --short HEAD)" "$(git log -1 --format=%s)"
   if [ -f "$API_DIR/$STAMP" ]; then
     printf 'api dir:    %s @ %s\n' "$API_DIR" "$(cat "$API_DIR/$STAMP")"
@@ -395,8 +453,8 @@ except Exception: procs=[]
 p=[x for x in procs if x.get('name')=='$APP']
 if not p: print('not registered'); raise SystemExit
 e=p[0].get('pm2_env',{})
-print('%s  mode=%s  restarts=%s  cwd=%s' % (
-  e.get('status'), e.get('exec_mode'), e.get('restart_time'), e.get('pm_cwd')))" 2>/dev/null \
+print('%s  mode=%s  restarts=%s  script=%s' % (
+  e.get('status'), e.get('exec_mode'), e.get('restart_time'), e.get('pm_exec_path') or e.get('pm_cwd')))" 2>/dev/null \
     || printf 'unknown (pm2 not readable)\n'
   local vf; vf="$(vhost_file)"
   if [ -n "$vf" ]; then printf 'vhost:      %s\n' "$vf"; vhost_proxy_lines "$vf" | sed 's/^/            /'; else printf 'vhost:      (none found for %s)\n' "$FQDN"; fi

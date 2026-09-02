@@ -213,10 +213,15 @@ stamp_api() { printf '%s\n' "$1" > "$API_DIR/$STAMP"; }
 # slash) strips it. The server answers both since it mounts its routes at /api
 # and /, but the convention on this box is the former, on 127.0.0.1, with the
 # forwarded headers the rate limiter needs.
+# Always the real file: a sites-enabled entry is a symlink, and `sed -i` on a
+# symlink replaces it with a regular file, leaving the canonical config that
+# nginx and certbot use untouched.
 vhost_file() {
-  if [ -n "${CASINO_VHOST:-}" ]; then printf '%s' "$CASINO_VHOST"; return; fi
-  local f
-  f="$(grep -lE "^\s*server_name\s+.*\b$FQDN\b" /etc/nginx/sites-available/* /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*.conf 2>/dev/null | head -1 || true)"
+  local f="${CASINO_VHOST:-}"
+  if [ -z "$f" ]; then
+    f="$(grep -lE "^\s*server_name\s+.*\b$FQDN\b" /etc/nginx/sites-available/* /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*.conf 2>/dev/null | head -1 || true)"
+  fi
+  [ -n "$f" ] && f="$(readlink -f "$f")"
   printf '%s' "$f"
 }
 vhost_proxy_lines() { # every proxy_pass pointing at the API port

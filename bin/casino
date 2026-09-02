@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+# casino — operate CLI for casino.lab980.com (Lucky Felt Casino).
+#
+# One repo, two halves on the droplet:
+#
+#   frontend  `npm run build` -> dist/ in THIS checkout; nginx serves it as
+#             static files (root /var/www/lucky-felt/dist).
+#   API       the repo's server/ directory, copied on each deploy into
+#             $CASINO_API_DIR (default /var/www/casino-api) and run there by
+#             pm2 as `casino-api` on 127.0.0.1:3001. nginx proxies /api/ to it.
+#             Its .env and the SQLite file live outside the checkout and
+#             survive deploys.
+#
+#   casino deploy [--no-build]  sync checkout -> build frontend -> copy server/
+#                               into the API dir -> npm ci there -> pm2
+#                               restart (or first start) -> probe
+#   casino restart              pm2 restart casino-api + probe, no code change
+#   casino logs [-n N]          tail the pm2 logs for casino-api
+#   casino status               HEAD, deployed API commit, pm2 state,
+#                               local + public probes, cert days
+#
+# Env overrides:
+#   CASINO_FQDN      default casino.lab980.com
+#   CASINO_BRANCH    default main
+#   CASINO_PORT      default 3001   (the API's port; predates the 8060+ range)
+#   CASINO_API_DIR   default /var/www/casino-api
+#   CASINO_PM2_NAME  default casino-api
+#
+# The checkout is wherever this script lives (normally /var/www/lucky-felt),
+# derived from the script's own path so the /usr/local/bin symlink resolves
+# back here.
+set -euo pipefail
+
+SELF="$(readlink -f "$0")"
+ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
+FQDN="${CASINO_FQDN:-casino.lab980.com}"
+BRANCH="${CASINO_BRANCH:-main}"
+PORT="${CASINO_PORT:-3001}"
+API_DIR="${CASINO_API_DIR:-/var/www/casino-api}"
+APP="${CASINO_PM2_NAME:-casino-api}"
+STAMP=".deployed-commit"   # written into $API_DIR so `status` can say what is live
+
+c_blue=$'\033[1;34m'; c_yellow=$'\033[1;33m'; c_red=$'\033[1;31m'; c_off=$'\033[0m'
+log()  { printf '%s==>%s %s\n' "$c_blue" "$c_off" "$*"; }
+warn() { printf '%swarn:%s %s\n' "$c_yellow" "$c_off" "$*" >&2; }
+die()  { printf '%serror:%s %s\n' "$c_red" "$c_off" "$*" >&2; exit 1; }
+
+usage() {
+  cat <<'USAGE'
+casino — operate casino.lab980.com (static frontend + pm2 API behind nginx).
+
+Usage:
+  casino deploy [--no-build]   sync checkout, build dist/, copy server/ to the
+                               API dir, npm ci there, pm2 restart, probe
+  casino restart               pm2 restart casino-api + probe
+  casino logs [-n N]           tail pm2 logs for casino-api
+  casino status                HEAD + deployed API commit + pm2 + probes + cert
+
+Env: CASINO_FQDN, CASINO_BRANCH (default main), CASINO_PORT (default 3001),
+     CASINO_API_DIR (default /var/www/casino-api), CASINO_PM2_NAME (default casino-api).
+USAGE
+}
+
+# Export the API's .env into this shell so `pm2 start` / `pm2 restart
+# --update-env` carry it. Values with spaces (MAIL_FROM) must be quoted in the
+# file; see server/.env.example.
+load_env() {
+  if [ -f "$API_DIR/.env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . "$API_DIR/.env"
+    set +a
+  fi
+}
+
+probe() {
+  # Three probes because three things can be broken independently: the API
+  # process, nginx's /api/ proxy, and nginx's static root. Local /api/health
+  # failing points at the app; local OK but public /api/ failing points at the
+  # proxy; public / failing points at the static root or the vhost itself.
+  local l p s
+  l="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:$PORT/api/health" || true)"
+  p="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$FQDN/api/health" || true)"
+  s="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$FQDN/" || true)"
+  printf 'api local:  http://127.0.0.1:%s/api/health  ->  HTTP %s\n' "$PORT" "${l:-unreachable}"
+  printf 'api public: https://%s/api/health  ->  HTTP %s\n' "$FQDN" "${p:-unreachable}"
+  printf 'site:       https://%s/  ->  HTTP %s\n' "$FQDN" "${s:-unreachable}"
+}
+
+pm2_registered() { pm2 describe "$APP" >/dev/null 2>&1; }
+
+# Copy the tracked contents of server/ at HEAD into $API_DIR. `git archive`
+# emits exactly what is committed, so node_modules, .env and *.db (all
+# untracked) are never touched. Files deleted from server/ between the previous
+# and the new commit are removed first so a stale module can't linger.
+sync_api() {
+  local before="$1" after="$2"
+  if [ "$(readlink -f "$API_DIR")" = "$ROOT/server" ]; then
+    log "API dir is the checkout's server/ — nothing to copy"
+    return
+  fi
+  mkdir -p "$API_DIR"
+  if [ -n "$before" ] && [ "$before" != "$after" ]; then
+    git diff --name-only --diff-filter=D "$before" "$after" -- server/ \
+      | sed 's#^server/##' \
+      | while IFS= read -r f; do
+          [ -n "$f" ] && rm -f "$API_DIR/$f" && log "removed $API_DIR/$f"
+        done
+  fi
+  log "Copying server/ @ $after -> $API_DIR"
+  git archive --format=tar "$after:server" | tar -x -C "$API_DIR"
+  printf '%s\n' "$after" > "$API_DIR/$STAMP"
+}
+
+cmd_deploy() {
+  local DO_BUILD=1
+  [ "${1:-}" = "--no-build" ] && DO_BUILD=0
+  cd "$ROOT"
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || die "$ROOT is not a git clone."
+
+  local before after prev_api
+  before="$(git rev-parse --short HEAD)"
+  prev_api="$(cat "$API_DIR/$STAMP" 2>/dev/null || true)"
+  log "Syncing $ROOT to origin/$BRANCH"
+  git fetch --quiet origin "$BRANCH"
+  git reset --hard --quiet "origin/$BRANCH"
+  after="$(git rev-parse --short HEAD)"
+  if [ "$before" = "$after" ]; then log "already current ($after)"
+  else log "$before -> $after"; git --no-pager log --oneline "$before..$after"; fi
+
+  # Frontend. npm ci, not npm install: the lockfile is the deployed dependency
+  # set, and a deploy that resolves different versions than were tested is
+  # the bug you find at 2am.
+  if [ "$DO_BUILD" -eq 1 ]; then
+    log "npm ci (frontend)"; npm ci
+    log "npm run build"; npm run build
+  else
+    warn "--no-build: dist/ left as it was"
+  fi
+
+  # API. Diff deletions against the commit the API dir actually holds, which
+  # may be older than $before if a previous deploy failed midway.
+  sync_api "${prev_api:-$before}" "$after"
+  log "npm ci (API)"
+  ( cd "$API_DIR" && npm ci --omit=dev )
+
+  load_env
+  if pm2_registered; then
+    log "pm2 restart $APP"
+    pm2 restart "$APP" --update-env
+  else
+    warn "pm2 has no process named $APP — starting it (first deploy)"
+    [ -f "$API_DIR/.env" ] || warn "$API_DIR/.env is missing; the API will run with defaults (DB in the API dir, no SMTP)"
+    ( cd "$API_DIR" && pm2 start index.js --name "$APP" )
+  fi
+  pm2 save
+  sleep 2
+  probe
+}
+
+cmd_restart() {
+  pm2_registered || die "pm2 has no process named $APP — run 'casino deploy' first"
+  load_env
+  log "pm2 restart $APP"
+  pm2 restart "$APP" --update-env
+  sleep 2
+  probe
+}
+
+cmd_logs() { pm2 logs "$APP" "$@"; }
+
+cmd_status() {
+  cd "$ROOT"
+  printf 'checkout:   %s  %s\n' "$(git rev-parse --short HEAD)" "$(git log -1 --format=%s)"
+  if [ -f "$API_DIR/$STAMP" ]; then
+    printf 'api dir:    %s @ %s\n' "$API_DIR" "$(cat "$API_DIR/$STAMP")"
+  else
+    printf 'api dir:    %s (no %s — not yet deployed by this CLI)\n' "$API_DIR" "$STAMP"
+  fi
+  printf 'pm2:        '
+  pm2 jlist 2>/dev/null \
+    | python3 -c "import json,sys
+try: procs=json.load(sys.stdin)
+except Exception: procs=[]
+p=[x for x in procs if x.get('name')=='$APP']
+if not p: print('not registered'); raise SystemExit
+e=p[0].get('pm2_env',{})
+print('%s  mode=%s  restarts=%s  cwd=%s' % (
+  e.get('status'), e.get('exec_mode'), e.get('restart_time'), e.get('pm_cwd')))" 2>/dev/null \
+    || printf 'unknown (pm2 not readable)\n'
+  probe
+  local pem="/etc/letsencrypt/live/$FQDN/cert.pem"
+  if [ -r "$pem" ]; then
+    local end days
+    end="$(openssl x509 -enddate -noout -in "$pem" | cut -d= -f2)"
+    days=$(( ($(date -d "$end" +%s) - $(date +%s)) / 86400 ))
+    printf 'cert:       %s days remaining (expires %s)\n' "$days" "$end"
+  else
+    printf 'cert:       (run as root to read expiry)\n'
+  fi
+}
+
+case "${1:-}" in
+  deploy)  shift; cmd_deploy "$@";;
+  restart) shift; cmd_restart "$@";;
+  logs)    shift; cmd_logs "$@";;
+  status)  shift; cmd_status "$@";;
+  -h|--help|help|"") usage;;
+  *) die "unknown command: $1 (see --help)";;
+esac

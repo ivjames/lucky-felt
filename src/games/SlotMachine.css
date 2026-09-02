@@ -1,0 +1,52 @@
+.lf-slots {
+  text-align: center;
+}
+
+.lf-slots__reels {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin: 8px 0;
+  background: var(--lf-bg);
+  border: 3px solid var(--lf-gold-dim);
+  border-radius: 12px;
+  padding: 10px 8px;
+}
+
+.lf-slots__reel {
+  width: clamp(48px, 12vw, 66px);
+  height: clamp(58px, 14vw, 76px);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #22203a, #14122a);
+  border: 2px solid var(--lf-gold-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(22px, 5vw, 36px);
+}
+
+.lf-slots__reel--spinning {
+  animation: reel-blur 0.15s linear infinite;
+}
+
+.lf-slots__payouts {
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.lf-slots__paylines {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.lf-slots__payline {
+  font-size: 12px;
+  color: var(--lf-muted);
+}
+
+.lf-slots__spin {
+  padding: 12px 36px;
+  font-size: 17px;
+  margin-top: 10px;
+}

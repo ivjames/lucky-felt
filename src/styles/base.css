@@ -1,0 +1,209 @@
+/* Shared primitives used across every screen: the app shell, panels, buttons,
+   inputs, chips and the casino headings. Component-specific rules live next to
+   their component. */
+
+/* ---- App shell ---- */
+.lf-app {
+  min-height: 100vh;
+  background: linear-gradient(160deg, var(--lf-bg) 0%, var(--lf-bg-mid) 50%, var(--lf-bg) 100%);
+  font-family: var(--lf-font-body);
+  color: var(--lf-text);
+  padding: 0 0 60px;
+}
+
+.lf-app--game {
+  padding: 0 0 40px;
+}
+
+.lf-app--centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.lf-app--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--lf-muted);
+}
+
+/* ---- Header / titles ---- */
+.lf-header {
+  text-align: center;
+  padding: 24px 16px 12px;
+  border-bottom: 1px solid var(--lf-border);
+}
+
+.lf-title {
+  font-size: clamp(28px, 6vw, 52px);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--lf-gold);
+  text-shadow: 0 0 12px #e8c84a99, 0 0 36px var(--lf-gold-dim);
+  font-family: var(--lf-font-display);
+  margin: 0;
+}
+
+.lf-subtitle {
+  color: var(--lf-muted);
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  margin-top: 4px;
+}
+
+.lf-section-title {
+  color: var(--lf-gold);
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--lf-gold-dim);
+  padding-bottom: 4px;
+}
+
+.lf-section-title--spaced {
+  margin-top: 18px;
+}
+
+/* ---- Panel ---- */
+.lf-panel {
+  background: linear-gradient(135deg, var(--lf-panel), var(--lf-panel-alt));
+  border: 1px solid var(--lf-border-soft);
+  border-radius: 14px;
+  padding: 20px;
+  max-width: 680px;
+  margin: 16px auto;
+}
+
+/* ---- Balance pill ---- */
+.lf-balance {
+  background: var(--lf-panel-alt);
+  border: 1px solid var(--lf-gold-dim);
+  border-radius: 8px;
+  padding: 8px 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.lf-balance__label {
+  color: var(--lf-muted);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+}
+
+.lf-balance__value {
+  color: var(--lf-gold);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+/* ---- Buttons ---- */
+.lf-btn {
+  background: transparent;
+  color: var(--lf-text);
+  border: none;
+  border-radius: 7px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-family: var(--lf-font-body);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  transition: opacity 0.15s, box-shadow 0.15s;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.lf-btn--gold {
+  background: linear-gradient(135deg, var(--lf-gold), #b89828);
+  color: var(--lf-bg);
+}
+
+.lf-btn--green {
+  background: linear-gradient(135deg, #2e6e45, var(--lf-panel));
+}
+
+.lf-btn--red {
+  background: linear-gradient(135deg, #9e2828, #5a1414);
+}
+
+.lf-btn--ghost {
+  border: 1px solid var(--lf-gold-dim);
+}
+
+/* Size modifiers */
+.lf-btn--sm {
+  font-size: 11px;
+}
+
+.lf-btn--compact {
+  font-size: 11px;
+  padding: 6px 10px;
+}
+
+.lf-btn--tiny {
+  font-size: 11px;
+  padding: 6px 12px;
+}
+
+.lf-btn--block {
+  width: 100%;
+  padding: 12px;
+  font-size: 15px;
+}
+
+/* ---- Input ---- */
+.lf-input {
+  background: var(--lf-panel-alt);
+  border: 1px solid var(--lf-gold-dim);
+  border-radius: 7px;
+  color: var(--lf-text);
+  padding: 10px 14px;
+  font-family: var(--lf-font-body);
+  font-size: 14px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ---- Betting chip ----
+   The drop shadow is repeated on :hover so it survives the global
+   `button:hover` box-shadow rule, exactly as the old inline style did. */
+.lf-chip {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  border: 3px solid rgba(240, 230, 200, 0.25);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  margin: 2px;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.lf-chip:hover:not(:disabled) {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.lf-chip--active {
+  border-color: var(--lf-gold);
+}
+
+/* ---- Utilities ---- */
+.lf-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}

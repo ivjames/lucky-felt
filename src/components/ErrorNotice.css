@@ -1,0 +1,10 @@
+.lf-error {
+  text-align: center;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 12px;
+  background: var(--lf-warn-bg);
+  border: 1px solid var(--lf-warn-border);
+  color: var(--lf-warn);
+  font-size: 13px;
+}

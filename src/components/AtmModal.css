@@ -1,0 +1,43 @@
+.lf-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.lf-atm {
+  max-width: 360px;
+  text-align: center;
+}
+
+.lf-atm__icon {
+  font-size: 40px;
+}
+
+.lf-atm__title {
+  color: var(--lf-gold);
+  font-size: 19px;
+  font-weight: 700;
+  margin: 10px 0;
+}
+
+.lf-atm__pitch {
+  color: var(--lf-muted);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.lf-atm__balance {
+  color: var(--lf-text);
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+
+.lf-atm__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}

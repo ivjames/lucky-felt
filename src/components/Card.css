@@ -1,0 +1,71 @@
+.lf-card {
+  width: 52px;
+  height: 74px;
+  border-radius: 7px;
+  border: 2px solid var(--lf-gold);
+  display: inline-flex;
+  margin: 0 3px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
+}
+
+.lf-card--small {
+  width: 38px;
+  height: 54px;
+}
+
+.lf-card--hidden {
+  background: linear-gradient(135deg, #2a5a38, var(--lf-panel-alt));
+  align-items: center;
+  justify-content: center;
+}
+
+.lf-card--face {
+  background: #22203a;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 3px 4px;
+}
+
+/* Suit colour cascades to the rank and pip spans. */
+.lf-card--red {
+  color: #ff6b6b;
+}
+
+.lf-card--black {
+  color: var(--lf-text);
+}
+
+.lf-card__back {
+  color: var(--lf-gold);
+  font-size: 24px;
+}
+
+.lf-card--small .lf-card__back {
+  font-size: 18px;
+}
+
+.lf-card__rank {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.lf-card--small .lf-card__rank {
+  font-size: 11px;
+}
+
+.lf-card__rank--inverted {
+  align-self: flex-end;
+  transform: rotate(180deg);
+}
+
+.lf-card__suit {
+  font-size: 18px;
+  line-height: 1;
+  margin: auto;
+}
+
+.lf-card--small .lf-card__suit {
+  font-size: 13px;
+}

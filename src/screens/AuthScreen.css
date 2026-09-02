@@ -1,0 +1,40 @@
+.lf-auth {
+  max-width: 420px;
+  text-align: center;
+}
+
+.lf-auth__prompt {
+  margin: 28px 0 8px;
+  color: var(--lf-muted);
+  font-size: 12px;
+  letter-spacing: 0.15em;
+}
+
+.lf-auth__code-input {
+  text-align: center;
+  letter-spacing: 0.4em;
+  font-size: 22px;
+}
+
+.lf-auth__submit {
+  margin-top: 12px;
+}
+
+.lf-auth__hint {
+  margin-top: 16px;
+  color: var(--lf-muted-dim);
+  font-size: 11px;
+}
+
+.lf-auth__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.lf-auth__msg {
+  margin-top: 12px;
+  color: var(--lf-gold);
+  font-size: 12px;
+}

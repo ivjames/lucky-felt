@@ -1,0 +1,22 @@
+.lf-betinput {
+  margin: 12px 0;
+}
+
+.lf-betinput__chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.lf-betinput__total {
+  color: var(--lf-gold);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.lf-betinput__amount {
+  color: var(--lf-text);
+  font-size: 18px;
+}

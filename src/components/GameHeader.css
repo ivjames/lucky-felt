@@ -1,0 +1,29 @@
+.lf-header--game {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lf-gameheader__title {
+  color: var(--lf-gold);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-size: 15px;
+}
+
+.lf-gameheader__aside {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lf-gameheader__balance {
+  color: var(--lf-gold);
+  font-weight: 700;
+}
+
+.lf-gameheader__balance-value {
+  font-size: 18px;
+}

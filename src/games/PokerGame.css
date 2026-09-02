@@ -1,0 +1,36 @@
+.lf-poker__cards {
+  min-height: 78px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.lf-poker__placeholder {
+  color: var(--lf-muted-dim);
+  font-size: 12px;
+}
+
+.lf-poker__controls {
+  margin-top: 14px;
+}
+
+.lf-poker__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lf-poker__deal {
+  margin-top: 8px;
+}
+
+.lf-poker__pot {
+  margin-top: 6px;
+  color: var(--lf-muted);
+  font-size: 12px;
+}
+
+.lf-poker__replay {
+  margin-top: 14px;
+}

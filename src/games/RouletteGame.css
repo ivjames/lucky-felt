@@ -1,0 +1,111 @@
+.lf-roulette__display {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.lf-roulette__wheel {
+  font-size: 52px;
+}
+
+.lf-roulette__wheel--idle {
+  color: var(--lf-muted-dim);
+}
+
+.lf-roulette__landed {
+  font-size: 56px;
+  font-weight: 700;
+  color: var(--lf-text);
+}
+
+.lf-roulette__landed--zero {
+  color: var(--lf-win);
+}
+
+.lf-roulette__landed--red {
+  color: var(--lf-lose);
+}
+
+.lf-roulette__history {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.lf-roulette__pip {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid #444;
+  color: var(--lf-text);
+}
+
+.lf-roulette__pip--green {
+  background: #1a5a1a;
+}
+
+.lf-roulette__pip--red {
+  background: #5a1a1a;
+}
+
+.lf-roulette__pip--black {
+  background: #1a1a2e;
+}
+
+.lf-roulette__chips {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.lf-roulette__board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.lf-roulette__bet {
+  background: var(--lf-panel-alt);
+  border: 1px solid var(--lf-border);
+  border-radius: 8px;
+  padding: 10px 6px;
+  cursor: pointer;
+  color: var(--lf-text);
+  font-size: 12px;
+  font-family: var(--lf-font-body);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-height: 52px;
+}
+
+.lf-roulette__bet--active {
+  background: var(--lf-win-bg);
+  border-color: var(--lf-win-border);
+  color: var(--lf-win);
+}
+
+.lf-roulette__bet-amount {
+  font-size: 10px;
+  color: var(--lf-gold);
+}
+
+.lf-roulette__total {
+  color: var(--lf-gold);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.lf-roulette__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

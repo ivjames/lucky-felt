@@ -1,0 +1,46 @@
+.lf-craps__types {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.lf-craps__type {
+  flex: 1;
+}
+
+.lf-craps__point {
+  color: var(--lf-gold);
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.lf-craps__dice {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin: 18px 0;
+}
+
+.lf-craps__die {
+  font-size: 60px;
+  line-height: 1;
+}
+
+.lf-craps__sum {
+  text-align: center;
+  color: var(--lf-muted);
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+
+.lf-craps__msg {
+  color: var(--lf-muted);
+  font-size: 12px;
+  margin: 8px 0;
+}
+
+.lf-craps__replay {
+  margin-top: 10px;
+}

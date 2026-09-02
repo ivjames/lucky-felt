@@ -161,8 +161,11 @@ print(e.get("pm_exec_path") or "")' 2>/dev/null || true
 }
 resolve_api_dir() {
   [ -n "${CASINO_API_DIR:-}" ] && return   # explicit override wins
+  pm2_registered || return                 # first deploy: nothing to learn from yet
   local sp; sp="$(pm2_script_path)"
-  [ -n "$sp" ] || return
+  # A registered process whose script path we cannot read is exactly the
+  # case where guessing the directory restarts the wrong code; don't guess.
+  [ -n "$sp" ] || die "pm2 has a process named $APP but its script path could not be read from 'pm2 jlist'. Set CASINO_API_DIR to the directory holding the API's index.js and re-run."
   # Only an index.js tells us where the API lives. A wrapper (npm, a shell
   # script, an ecosystem entry) says nothing about the directory, and copying
   # server/ beside it would clobber whatever is there.

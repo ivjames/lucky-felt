@@ -227,13 +227,19 @@ api.post("/login/request", authLimiter, async (req, res) => {
   q.deleteExpiredCodes.run(Date.now()); // sweep stale codes (any email) on each new request
   const code = newLoginCode();
   q.upsertCode.run(email, hashCode(email, code), Date.now() + CODE_TTL_MS);
+  if (SHOW_CODE) {
+    // The code is the response; email is best-effort in the background so a
+    // hanging or slow SMTP server can't hold the request (and the browser)
+    // hostage. Failures are logged, never surfaced.
+    sendLoginCode(email, code).catch((e) => console.error("[login] background send failed:", e.message));
+    return res.json({ ok: true, devCode: code, shown: true });
+  }
   try {
     await sendLoginCode(email, code);
   } catch (e) {
     console.error("[login] failed to send code:", e.message);
-    if (!SHOW_CODE) return res.status(502).json({ error: "Couldn't send the sign-in code. Try again shortly." });
+    return res.status(502).json({ error: "Couldn't send the sign-in code. Try again shortly." });
   }
-  if (SHOW_CODE) return res.json({ ok: true, devCode: code, shown: true });
   res.json({ ok: true, ...(DEV_ECHO ? { devCode: code } : {}) });
 });
 

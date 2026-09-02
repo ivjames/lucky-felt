@@ -48,14 +48,18 @@ What `deploy` does, in order:
 2. `npm ci` + `npm run build` for the frontend. `--no-build` skips this when
    only `server/` changed.
 3. Copies the committed contents of `server/` into `/var/www/casino-api` with
-   `git archive` (so `node_modules`, `.env`, `*.db` there are never touched),
-   removes any file deleted from `server/` since the last deploy, and stamps
-   the commit into `/var/www/casino-api/.deployed-commit`.
+   `git archive` (so `node_modules`, `.env`, `*.db` there are never touched)
+   and removes any file deleted from `server/` since the last activated
+   deploy.
 4. `npm ci --omit=dev` in the API dir.
 5. Sources the API `.env`, then `pm2 restart casino-api --update-env` (or
-   `pm2 start` if the process doesn't exist yet), `pm2 save`.
-6. Probes `/api/health` locally and publicly, and the public `/`. **Any probe
-   that isn't HTTP 200 makes `deploy` (and `restart`) exit nonzero** with a
+   `pm2 start` if the process doesn't exist yet), `pm2 save`. Only now is the
+   commit stamped into `/var/www/casino-api/.deployed-commit`, so a deploy
+   that fails at `npm ci` leaves the stamp on the commit still running.
+6. Probes `/api/health` locally and publicly, and the public `/`. The two API
+   probes require the `{"ok":true}` body, not just a 200, because a vhost
+   with no `/api/` location would answer 200 with the SPA's `index.html`.
+   **Any failed probe makes `deploy` (and `restart`) exit nonzero** with a
    line saying which of the three failed, so a broken rollout can't pass as
    a success to an operator or a script. `status` reports the same probes
    without failing.

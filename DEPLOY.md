@@ -16,22 +16,41 @@ One repo, two halves on the box. This is a split layout, not the plain
 State lives outside the checkout and survives deploys: the API's `.env` at
 `/var/www/casino-api/.env` and the SQLite database at `/var/data/casino.db`.
 
-The API binds **`127.0.0.1`** (override with `HOST` in `.env`), matching the
-vhost's `proxy_pass` below and every vhost `provision-site` writes.
-
-> **Before the first `casino deploy` on the current box, pin the vhost.** The
-> inspection recorded in lab980's `docs/admin-tool.md` (finding 7) found the
-> live `casino-api` bound to `[::1]:3001` only, with the vhost proxying to
-> `localhost`, which nginx happened to resolve to `::1`. The server now binds
-> `127.0.0.1`, so after the deploy nginx would reach it only by failing over
-> from `::1`. Change `proxy_pass http://localhost:3001` to
-> `proxy_pass http://127.0.0.1:3001` in the vhost, `nginx -t && systemctl
-> reload nginx`, then deploy. `casino status` reports which loopback family
-> answered.
+The API binds **`127.0.0.1`** (override with `HOST` in `.env`) and mounts
+every route at both `/api/...` and `/...`, so it answers whether the vhost's
+`proxy_pass` keeps the `/api` prefix (`proxy_pass http://127.0.0.1:3001;`) or
+strips it (`proxy_pass http://host:3001/;`, trailing slash). The convention on
+the box is the former, and `casino setup` pins it.
 
 Port 3001 predates the droplet's 8060+ convention. Changing it means editing the
 vhost's `proxy_pass`, the `.env`, and `CASINO_PORT` together; leave it unless
 you're doing all three.
+
+## First time on a box that already runs the site: `casino setup`
+
+Idempotent; re-running it is harmless. On the droplet, as root:
+
+```bash
+cd /var/www/lucky-felt && git fetch origin main && git reset --hard origin/main
+bin/casino setup
+```
+
+It does, in order:
+
+1. Symlinks itself to `/usr/local/bin/casino`.
+2. Seeds `/var/www/casino-api/.env` **from the running pm2 process** if the file
+   doesn't exist yet (the box's original state: env given on the first
+   `pm2 start` line), so nothing is lost when `deploy` restarts with
+   `--update-env`. With no process yet it copies `server/.env.example` and
+   tells you to fill it in. Creates the `CASINO_DB` directory.
+3. Runs `casino deploy` **first**, so the API is already up on `127.0.0.1`
+   before nginx is pointed at it (the pre-CLI process may be bound to `::1`
+   only; pinning first would 502 the site for the length of the build).
+4. Pins the vhost: every `proxy_pass` at the API port becomes
+   `proxy_pass http://127.0.0.1:3001;` (prefix kept, IPv4 loopback); each API
+   location block that lacks the forwarded headers gets them; a `.bak` is
+   kept beside the file; `nginx -t`, reload. It finds the file by
+   `server_name`; override with `CASINO_VHOST`. Then a final probe.
 
 ## Deploying updates
 
@@ -100,19 +119,16 @@ line rather than a `.env` file, those are still in the pm2 dump and survive
 `restart`. Moving them into `.env` is the supported path; `casino deploy`
 sources it before every restart.
 
-## One-time bring-up (on a fresh droplet, as root)
-
-The vhost for `casino.lab980.com` already exists on the current box. From
-scratch:
+## Bring-up on a fresh droplet (as root)
 
 ```bash
 git clone https://github.com/ivjames/lucky-felt /var/www/lucky-felt
-ln -sf /var/www/lucky-felt/bin/casino /usr/local/bin/casino
 mkdir -p /var/www/casino-api /var/data
 cp /var/www/lucky-felt/server/.env.example /var/www/casino-api/.env
 chmod 600 /var/www/casino-api/.env
 $EDITOR /var/www/casino-api/.env          # fill the keys above
-casino deploy                             # builds, copies, starts casino-api under pm2
+# write the vhost below, enable it, certbot
+/var/www/lucky-felt/bin/casino setup      # symlink, vhost pin, build, copy, first pm2 start
 ```
 
 Reboot survival needs pm2's boot hook installed **once per droplet**:
@@ -163,3 +179,4 @@ certbot --nginx -d casino.lab980.com
 - `CASINO_PORT` — default `3001`
 - `CASINO_API_DIR` — default `/var/www/casino-api`. Point it at the checkout's own `server/` to run the API in place instead of from a copy; `deploy` then skips the copy step.
 - `CASINO_PM2_NAME` — default `casino-api`
+- `CASINO_VHOST` — default: the file under `/etc/nginx/sites-available` whose `server_name` includes the FQDN

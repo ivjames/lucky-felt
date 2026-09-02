@@ -114,6 +114,13 @@ const app = express();
 app.use(express.json());
 app.set("trust proxy", 1); // behind nginx; needed for correct rate-limit keys
 
+// Every route lives on this router, which is mounted at BOTH /api and /.
+// The browser calls /api/...; whether the request reaches us as /api/... or
+// as /... depends on the nginx vhost (`proxy_pass http://host:port;` keeps
+// the prefix, `proxy_pass http://host:port/;` strips it). Answering both
+// makes the API indifferent to that one trailing slash.
+const api = express.Router();
+
 const betLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 120, // generous for a human clicking spin; blunts scripted abuse
@@ -207,7 +214,7 @@ function validEmail(email) {
 // Step 1: email a one-time code. No token is minted here, so simply knowing an
 // email no longer grants a session — the requester must prove they can read the
 // inbox. Response is uniform whether or not the account exists (no enumeration).
-app.post("/api/login/request", authLimiter, async (req, res) => {
+api.post("/login/request", authLimiter, async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   if (!validEmail(email)) return res.status(400).json({ error: "Enter a valid email address." });
   q.deleteExpiredCodes.run(Date.now()); // sweep stale codes (any email) on each new request
@@ -224,7 +231,7 @@ app.post("/api/login/request", authLimiter, async (req, res) => {
 
 // Step 2: verify the code, then mint the session (and create the account on
 // first successful sign-in). Codes are single-use, time-limited, attempt-capped.
-app.post("/api/login/verify", authLimiter, (req, res) => {
+api.post("/login/verify", authLimiter, (req, res) => {
   const email = normalizeEmail(req.body?.email);
   const code = String(req.body?.code || "").trim();
   if (!validEmail(email) || !/^\d{6}$/.test(code)) return res.status(400).json({ error: "Enter the 6-digit code from your email." });
@@ -249,29 +256,29 @@ app.post("/api/login/verify", authLimiter, (req, res) => {
   res.json({ token, user: publicUser(user), isNew, startingBalance: STARTING_BALANCE });
 });
 
-app.post("/api/logout", auth, (req, res) => {
+api.post("/logout", auth, (req, res) => {
   const header = req.get("authorization") || "";
   const token = header.slice(7);
   q.deleteSession.run(token);
   res.json({ ok: true });
 });
 
-app.get("/api/me", auth, (req, res) => {
+api.get("/me", auth, (req, res) => {
   res.json({ user: publicUser(req.user) });
 });
 
 // Unauthenticated health check only — no account data. (Balance lookups
 // require a session token; see GET /api/me.)
-app.get("/api/health", (req, res) => {
+api.get("/health", (req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/api/config", (req, res) => {
+api.get("/config", (req, res) => {
   res.json({ ...publicConfig(), limits: { minBet: MIN_BET, maxBet: MAX_BET, maxTotalBet: MAX_TOTAL_BET, atmAmount: ATM_AMOUNT, atmCooldownMs: ATM_COOLDOWN_MS } });
 });
 
 // ---- ATM (server-enforced cooldown) --------------------------------------
-app.post("/api/atm", auth, (req, res) => {
+api.post("/atm", auth, (req, res) => {
   const u = req.user;
   const now = Date.now();
   const elapsed = now - u.lastAtm;
@@ -285,7 +292,7 @@ app.post("/api/atm", auth, (req, res) => {
 });
 
 // ---- Slots ---------------------------------------------------------------
-app.post("/api/bet/slots", betLimiter, auth, (req, res) => {
+api.post("/bet/slots", betLimiter, auth, (req, res) => {
   const u = req.user;
   const { game, bet } = req.body || {};
   if (!SLOT_CONFIGS[game]) return res.status(400).json({ error: "Unknown slot machine." });
@@ -298,7 +305,7 @@ app.post("/api/bet/slots", betLimiter, auth, (req, res) => {
 });
 
 // ---- Roulette ------------------------------------------------------------
-app.post("/api/bet/roulette", betLimiter, auth, (req, res) => {
+api.post("/bet/roulette", betLimiter, auth, (req, res) => {
   const u = req.user;
   const err = validateBetMap(req.body?.bets, ROULETTE_IDS, u.balance);
   if (err) return res.status(400).json({ error: err });
@@ -310,7 +317,7 @@ app.post("/api/bet/roulette", betLimiter, auth, (req, res) => {
 });
 
 // ---- Sic Bo --------------------------------------------------------------
-app.post("/api/bet/sicbo", betLimiter, auth, (req, res) => {
+api.post("/bet/sicbo", betLimiter, auth, (req, res) => {
   const u = req.user;
   const err = validateBetMap(req.body?.bets, SICBO_IDS, u.balance);
   if (err) return res.status(400).json({ error: err });
@@ -322,7 +329,7 @@ app.post("/api/bet/sicbo", betLimiter, auth, (req, res) => {
 });
 
 // ---- Craps (stateful; persisted so a restart never strands the stake) -----
-app.post("/api/bet/craps", betLimiter, auth, (req, res) => {
+api.post("/bet/craps", betLimiter, auth, (req, res) => {
   const u = req.user;
   let state = getGameState(u.email, "craps");
   let balance = u.balance;
@@ -367,7 +374,7 @@ app.post("/api/bet/craps", betLimiter, auth, (req, res) => {
 // `game_state` so a server restart mid-hand doesn't strand the already-
 // debited stake — GET /api/poker/state recovers it after a restart exactly
 // as it would after a page reload.
-app.post("/api/poker/deal", betLimiter, auth, (req, res) => {
+api.post("/poker/deal", betLimiter, auth, (req, res) => {
   const u = req.user;
   // A hand already in progress (e.g. the player reloaded mid-hand) must not be
   // clobbered — its stake is already deducted. Reject and let the client resume
@@ -395,13 +402,13 @@ app.post("/api/poker/deal", betLimiter, auth, (req, res) => {
 // Lets a reconnecting client recover a hand it was in the middle of — including
 // after a server restart, since the hand lives in SQLite, not memory. Dealer
 // hole cards stay hidden — same rule as deal.
-app.get("/api/poker/state", auth, (req, res) => {
+api.get("/poker/state", auth, (req, res) => {
   const state = getGameState(req.user.email, "poker");
   if (!state) return res.json({ active: false });
   res.json({ active: true, player: state.player, community: state.community, pot: state.pot, phase: state.phase });
 });
 
-app.post("/api/poker/advance", auth, (req, res) => {
+api.post("/poker/advance", auth, (req, res) => {
   const u = req.user;
   const state = getGameState(u.email, "poker");
   if (!state) return res.status(409).json({ error: "No hand in progress." });
@@ -415,7 +422,7 @@ app.post("/api/poker/advance", auth, (req, res) => {
   res.json({ community: state.community, phase: state.phase });
 });
 
-app.post("/api/poker/showdown", auth, (req, res) => {
+api.post("/poker/showdown", auth, (req, res) => {
   const u = req.user;
   const state = getGameState(u.email, "poker");
   if (!state) return res.status(409).json({ error: "No hand in progress." });
@@ -438,7 +445,7 @@ app.post("/api/poker/showdown", auth, (req, res) => {
   });
 });
 
-app.post("/api/poker/fold", auth, (req, res) => {
+api.post("/poker/fold", auth, (req, res) => {
   const u = req.user;
   const state = getGameState(u.email, "poker");
   if (!state) return res.status(409).json({ error: "No hand in progress." });
@@ -446,6 +453,9 @@ app.post("/api/poker/fold", auth, (req, res) => {
   clearGameState(u.email, "poker");
   res.json({ balance: u.balance, delta: -state.pot });
 });
+
+app.use("/api", api);
+app.use("/", api);
 
 // Bind loopback IPv4 explicitly. A bare listen(PORT) binds every interface,
 // and listen(PORT, "localhost") resolves to ::1 on a dual-stack box, which is

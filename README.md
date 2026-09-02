@@ -104,6 +104,7 @@ Production is the lab980 droplet: nginx serves the built `dist/` and proxies
 `server/`. Merging to `main` deploys nothing; on the droplet run:
 
 ```bash
+casino setup       # once per box: symlink, .env, vhost pin, then deploy
 casino deploy      # sync, build, copy server/, npm ci, pm2 restart, probe
 casino status      # what is actually live
 ```

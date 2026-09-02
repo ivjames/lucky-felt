@@ -1,61 +1,38 @@
-.lf-sicbo__dice {
+.lf-sicbo__total-readout {
   display: flex;
-  gap: 16px;
-  justify-content: center;
-  margin: 14px 0 18px;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 16px;
 }
 
-.lf-sicbo__die {
-  font-size: 52px;
+.lf-sicbo__total-label {
+  color: var(--lf-text-dim);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lf-sicbo__total-value {
+  color: var(--lf-gold);
+  font-size: 30px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.lf-sicbo__chips-title {
+  width: 100%;
+  margin-top: 22px;
 }
 
 .lf-sicbo__chips {
   display: flex;
-  gap: 4px;
-  margin-bottom: 14px;
+  gap: 8px;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .lf-sicbo__board {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
-  margin-bottom: 14px;
-}
-
-.lf-sicbo__bet {
-  background: var(--lf-panel-alt);
-  border: 1px solid var(--lf-border);
-  border-radius: 8px;
-  padding: 10px;
-  cursor: pointer;
-  color: var(--lf-text);
-  font-family: var(--lf-font-body);
-  font-size: 12px;
-  text-align: left;
-  min-height: 52px;
-}
-
-.lf-sicbo__bet--active {
-  background: var(--lf-win-bg);
-  border-color: var(--lf-win-border);
-  color: var(--lf-win);
-}
-
-.lf-sicbo__payout {
-  display: block;
-  font-size: 10px;
-  color: var(--lf-gold);
-  margin-top: 2px;
-}
-
-.lf-sicbo__total {
-  color: var(--lf-gold);
-  font-size: 13px;
-  margin-bottom: 10px;
-}
-
-.lf-sicbo__actions {
-  display: flex;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 8px;
 }

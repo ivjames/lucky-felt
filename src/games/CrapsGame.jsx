@@ -5,7 +5,7 @@ import BrokeNotice from "../components/BrokeNotice";
 import ErrorNotice from "../components/ErrorNotice";
 import GameHeader from "../components/GameHeader";
 import ResultBanner from "../components/ResultBanner";
-import { DICE_SYMBOLS } from "../lib/constants";
+import Die from "../components/Die";
 import { sleep } from "../lib/sleep";
 import "./CrapsGame.css";
 
@@ -60,84 +60,88 @@ export default function CrapsGame({ user, onUpdate, onBack, onAtm, onError }) {
     setMsg("Choose Pass or Don't Pass and roll.");
   }
 
+  const rolled = dice[0] != null && !rolling;
+
   return (
-    <div className="lf-app lf-app--game">
+    <div className="lf-app">
       <GameHeader title="Craps" balance={balance} onBack={onBack} onAtm={onAtm} />
-      <div className="lf-panel">
-        <div className="lf-craps__types" role="group" aria-label="Bet type">
-          <button
-            className={`lf-btn lf-btn--${type === "pass" ? "gold" : "ghost"} lf-craps__type`}
-            onClick={() => {
-              if (phase === "comeout" && !rolling) setType("pass");
-            }}
-            aria-pressed={type === "pass"}
+      <main className="lf-shell lf-game lf-game--split">
+        <section className="lf-panel lf-game__stage lf-craps__stage">
+          <div
+            className="lf-dice-tray"
+            role="status"
+            aria-label={rolling ? "Dice rolling" : `Dice showing ${dice[0] ?? "nothing"} and ${dice[1] ?? "nothing"}`}
           >
-            Pass Line
-          </button>
-          <button
-            className={`lf-btn lf-btn--${type === "dontpass" ? "gold" : "ghost"} lf-craps__type`}
-            onClick={() => {
-              if (phase === "comeout" && !rolling) setType("dontpass");
-            }}
-            aria-pressed={type === "dontpass"}
-          >
-            Don't Pass
-          </button>
-        </div>
-
-        {point && (
-          <div className="lf-craps__point" aria-live="polite">
-            Point: {point}
+            {dice.map((d, i) => (
+              <Die key={i} value={d} rolling={rolling} size={78} />
+            ))}
           </div>
-        )}
 
-        <div
-          className="lf-craps__dice"
-          role="status"
-          aria-label={rolling ? "Dice rolling" : `Dice showing ${dice[0] || "?"} and ${dice[1] || "?"}`}
-        >
-          {dice.map((d, i) => (
-            <div key={i} className="lf-craps__die" aria-hidden="true">
-              {rolling ? "🎲" : d ? DICE_SYMBOLS[d] : "🎲"}
+          <div className="lf-craps__readout">
+            <div className="lf-craps__stat" aria-live="polite">
+              <span className="lf-craps__stat-label">Total</span>
+              <span className="lf-craps__stat-value">{rolled ? dice[0] + dice[1] : "—"}</span>
             </div>
-          ))}
-        </div>
-
-        {dice[0] && !rolling && (
-          <div className="lf-craps__sum" aria-live="polite">
-            Sum: <b>{dice[0] + dice[1]}</b>
+            <div className="lf-craps__stat" aria-live="polite">
+              <span className="lf-craps__stat-label">Point</span>
+              <span className="lf-craps__stat-value">{point ?? "—"}</span>
+            </div>
           </div>
-        )}
 
-        <div className="lf-craps__msg" aria-live="polite">
-          {msg}
-        </div>
+          <p className="lf-craps__msg" aria-live="polite">
+            {msg}
+          </p>
+        </section>
 
-        {broke && phase === "comeout" ? (
-          <BrokeNotice onAtm={onAtm} />
-        ) : (
-          <>
-            {phase === "comeout" && (
-              <BetInput balance={balance} bet={bet} setBet={setBet} disabled={rolling} />
-            )}
+        <section className="lf-panel">
+          <h2 className="lf-section-title">Your wager</h2>
+          <div className="lf-craps__types" role="group" aria-label="Bet type">
             <button
-              className="lf-btn lf-btn--gold"
-              onClick={roll}
-              disabled={rolling || (phase === "comeout" && bet <= 0)}
+              className={`lf-btn lf-btn--${type === "pass" ? "gold" : "ghost"} lf-craps__type`}
+              onClick={() => {
+                if (phase === "comeout" && !rolling) setType("pass");
+              }}
+              aria-pressed={type === "pass"}
             >
-              {rolling ? "Rolling…" : "Roll the dice"}
+              Pass line
             </button>
-          </>
-        )}
+            <button
+              className={`lf-btn lf-btn--${type === "dontpass" ? "gold" : "ghost"} lf-craps__type`}
+              onClick={() => {
+                if (phase === "comeout" && !rolling) setType("dontpass");
+              }}
+              aria-pressed={type === "dontpass"}
+            >
+              Don't pass
+            </button>
+          </div>
 
-        <ResultBanner result={result} />
-        <ErrorNotice error={err} />
-        {result && phase === "comeout" && (
-          <button className="lf-btn lf-btn--green lf-craps__replay" onClick={newRound}>
-            New round
-          </button>
-        )}
-      </div>
+          {broke && phase === "comeout" ? (
+            <BrokeNotice onAtm={onAtm} />
+          ) : (
+            <>
+              {phase === "comeout" && (
+                <BetInput balance={balance} bet={bet} setBet={setBet} disabled={rolling} />
+              )}
+              <button
+                className="lf-btn lf-btn--gold lf-btn--wide"
+                onClick={roll}
+                disabled={rolling || (phase === "comeout" && bet <= 0)}
+              >
+                {rolling ? "Rolling…" : "Roll the dice"}
+              </button>
+            </>
+          )}
+
+          <ResultBanner result={result} />
+          <ErrorNotice error={err} />
+          {result && phase === "comeout" && (
+            <button className="lf-btn lf-btn--green lf-craps__replay" onClick={newRound}>
+              New round
+            </button>
+          )}
+        </section>
+      </main>
     </div>
   );
 }

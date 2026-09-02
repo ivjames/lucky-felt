@@ -1,4 +1,7 @@
 import { useState } from "react";
+import BrandMark from "../components/icons/BrandMark";
+import GameIcon from "../components/icons/GameIcon";
+import { AlertIcon, AtmIcon } from "../components/icons/UiIcons";
 import { ATM_AMOUNT, ATM_COOLDOWN_MS, GAMES } from "../lib/constants";
 import "./Lobby.css";
 
@@ -12,50 +15,57 @@ export default function Lobby({ user, onGame, onAtm, onLogout }) {
 
   return (
     <div className="lf-app">
-      <div className="lf-header">
-        <div className="lf-title" role="heading" aria-level="1">
-          🎰 LUCKY FELT
-        </div>
-        <div className="lf-subtitle">CASINO &amp; GAMING CLUB</div>
-        <div className="lf-lobby__actions">
-          <div className="lf-balance" aria-label={`Your balance is $${user.balance.toFixed(2)}`}>
-            <span className="lf-balance__label">BALANCE</span>
-            <span className="lf-balance__value">${user.balance.toFixed(2)}</span>
+      <header className="lf-lobby__header">
+        <div className="lf-shell">
+          <div className="lf-brand">
+            <BrandMark className="lf-brand__mark" />
+            <h1 className="lf-title">Lucky Felt</h1>
           </div>
-          <button
-            className={`lf-btn lf-btn--ghost lf-lobby__atm${canAtm ? "" : " lf-lobby__atm--cooldown"}`}
-            onClick={() => canAtm && onAtm()}
-            aria-label={canAtm ? `Free ATM — add $${ATM_AMOUNT}` : `ATM available in ${cooldownMin} minutes`}
-          >
-            {canAtm ? `🏧 Free top-up +$${ATM_AMOUNT}` : `🏧 ATM — ${cooldownMin}m cooldown`}
-          </button>
-          <button className="lf-btn lf-btn--ghost lf-btn--sm" onClick={onLogout}>
-            Sign out
-          </button>
-        </div>
-        <div className="lf-lobby__email">{user.email}</div>
-        {broke && (
-          <div className="lf-lobby__warning">
-            ⚠ You're out of chips — {canAtm ? "grab a free top-up above!" : "the ATM will be free soon."}
+          <p className="lf-subtitle">Casino &amp; gaming club</p>
+          <div className="lf-lobby__actions">
+            <div className="lf-balance" aria-label={`Your balance is $${user.balance.toFixed(2)}`}>
+              <span className="lf-balance__label" aria-hidden="true">
+                Balance
+              </span>
+              <span className="lf-balance__value" aria-hidden="true">
+                ${user.balance.toFixed(2)}
+              </span>
+            </div>
+            <button
+              className={`lf-btn lf-btn--ghost lf-lobby__atm${canAtm ? "" : " lf-lobby__atm--cooldown"}`}
+              onClick={() => canAtm && onAtm()}
+              aria-label={canAtm ? `Free ATM top-up, add $${ATM_AMOUNT}` : `ATM available in ${cooldownMin} minutes`}
+            >
+              <AtmIcon className="lf-btn__icon" />
+              {canAtm ? `Free top-up +$${ATM_AMOUNT}` : `ATM — ${cooldownMin}m cooldown`}
+            </button>
+            <button className="lf-btn lf-btn--ghost lf-btn--sm" onClick={onLogout}>
+              Sign out
+            </button>
           </div>
-        )}
-      </div>
-      <div className="lf-lobby__body">
-        <div className="lf-section-title">Choose a game</div>
+          <p className="lf-lobby__email">{user.email}</p>
+          {broke && (
+            <p className="lf-lobby__warning">
+              <AlertIcon className="lf-lobby__warning-icon" />
+              You're out of chips — {canAtm ? "grab a free top-up above." : "the ATM will be free soon."}
+            </p>
+          )}
+        </div>
+      </header>
+      <main className="lf-shell lf-lobby__body">
+        <h2 className="lf-section-title">Choose a game</h2>
         <div className="lf-lobby__grid" role="list">
           {GAMES.map((g) => (
             <div key={g.id} role="listitem">
               <button className="lf-gamecard" onClick={() => onGame(g.id)}>
-                <div className="lf-gamecard__icon" aria-hidden="true">
-                  {g.icon}
-                </div>
-                <div className="lf-gamecard__name">{g.name}</div>
-                <div className="lf-gamecard__desc">{g.desc}</div>
+                <GameIcon id={g.id} className="lf-gamecard__icon" />
+                <span className="lf-gamecard__name">{g.name}</span>
+                <span className="lf-gamecard__desc">{g.desc}</span>
               </button>
             </div>
           ))}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

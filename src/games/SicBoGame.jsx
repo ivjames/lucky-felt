@@ -4,7 +4,8 @@ import BrokeNotice from "../components/BrokeNotice";
 import ErrorNotice from "../components/ErrorNotice";
 import GameHeader from "../components/GameHeader";
 import ResultBanner from "../components/ResultBanner";
-import { CHIP_COLORS, DICE_SYMBOLS } from "../lib/constants";
+import Die from "../components/Die";
+import { CHIP_COLORS } from "../lib/constants";
 import { sleep } from "../lib/sleep";
 import "./SicBoGame.css";
 
@@ -31,10 +32,10 @@ export default function SicBoGame({ user, onUpdate, onBack, onAtm, onError, conf
       setDice(r.dice);
       setBalance(r.balance);
       setResult({
-        label: r.delta > 0 ? "You win!" : "No match — try again",
+        label: r.delta > 0 ? "You win!" : r.delta === 0 ? "Bets returned" : "No win this roll",
         won: r.delta > 0,
         delta: r.delta,
-        detail: `Dice: ${r.dice.join(" ")} = ${r.sum}${r.wins.length ? " · " + r.wins.join(", ") : ""}`,
+        detail: `Dice ${r.dice.join(", ")} · total ${r.sum}${r.wins.length ? " · hits: " + r.wins.join(", ") : ""}`,
       });
       onUpdate({ ...user, balance: r.balance });
     } catch (e) {
@@ -48,81 +49,96 @@ export default function SicBoGame({ user, onUpdate, onBack, onAtm, onError, conf
     }
   }
 
+  const rolled = dice[0] != null && !rolling;
+  const sum = rolled ? dice.reduce((a, b) => a + b, 0) : null;
+
   return (
-    <div className="lf-app lf-app--game">
+    <div className="lf-app">
       <GameHeader title="Sic Bo" balance={balance} onBack={onBack} onAtm={onAtm} />
-      <div className="lf-panel">
-        <div
-          className="lf-sicbo__dice"
-          role="status"
-          aria-label={rolling ? "Dice rolling" : `Dice: ${dice.filter(Boolean).join(", ")}`}
-        >
-          {dice.map((d, i) => (
-            <div key={i} className="lf-sicbo__die" aria-hidden="true">
-              {rolling ? "🎲" : d ? DICE_SYMBOLS[d] : "🎲"}
-            </div>
-          ))}
-        </div>
+      <main className="lf-shell lf-game lf-game--split">
+        <section className="lf-panel lf-game__stage">
+          <div
+            className="lf-dice-tray"
+            role="status"
+            aria-label={rolling ? "Dice rolling" : rolled ? `Dice ${dice.join(", ")}, total ${sum}` : "No roll yet"}
+          >
+            {dice.map((d, i) => (
+              <Die key={i} value={d} rolling={rolling} size={66} />
+            ))}
+          </div>
+          <div className="lf-sicbo__total-readout" aria-live="polite">
+            <span className="lf-sicbo__total-label">Total</span>
+            <span className="lf-sicbo__total-value">{sum ?? "—"}</span>
+          </div>
 
-        <div className="lf-section-title">Chip value: ${chipVal}</div>
-        <div className="lf-sicbo__chips">
-          {SICBO_CHIPS.map((v, i) => (
-            <button
-              key={v}
-              className={`lf-chip${chipVal === v ? " lf-chip--active" : ""}`}
-              style={{ background: CHIP_COLORS[i] }}
-              onClick={() => setChipVal(v)}
-              aria-pressed={chipVal === v}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-
-        {broke ? (
-          <BrokeNotice onAtm={onAtm} />
-        ) : (
-          <>
-            <div className="lf-sicbo__board">
-              {config.sicbo.map((b) => (
-                <button
-                  key={b.id}
-                  className={`lf-sicbo__bet${bets[b.id] ? " lf-sicbo__bet--active" : ""}`}
-                  aria-pressed={!!bets[b.id]}
-                  onClick={() => {
-                    if (!rolling && balance - totalBet >= chipVal) {
-                      setBets((p) => ({ ...p, [b.id]: (p[b.id] || 0) + chipVal }));
-                    }
-                  }}
-                >
-                  {b.label}
-                  <span className="lf-sicbo__payout">
-                    {b.payout}:1{bets[b.id] > 0 && " · $" + bets[b.id]}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <div className="lf-sicbo__total" aria-live="polite">
-              Total bet: ${totalBet}
-            </div>
-            <div className="lf-sicbo__actions">
+          <h2 className="lf-section-title lf-sicbo__chips-title">Chip value</h2>
+          <div className="lf-sicbo__chips">
+            {SICBO_CHIPS.map((v, i) => (
               <button
-                className="lf-btn lf-btn--gold"
-                onClick={roll}
-                disabled={rolling || totalBet <= 0 || totalBet > balance}
+                key={v}
+                className={`lf-chip${chipVal === v ? " lf-chip--active" : ""}`}
+                style={{ background: CHIP_COLORS[i] }}
+                onClick={() => setChipVal(v)}
+                aria-pressed={chipVal === v}
+                aria-label={`Chip value $${v}`}
               >
-                {rolling ? "Rolling…" : "Roll the dice"}
+                {v}
               </button>
-              <button className="lf-btn lf-btn--ghost" onClick={() => setBets({})} disabled={rolling}>
-                Clear bets
-              </button>
-            </div>
-          </>
-        )}
+            ))}
+          </div>
+        </section>
 
-        <ResultBanner result={result} />
-        <ErrorNotice error={err} />
-      </div>
+        <section className="lf-panel">
+          {broke ? (
+            <BrokeNotice onAtm={onAtm} />
+          ) : (
+            <>
+              <h2 className="lf-section-title">Place your bets</h2>
+              <div className="lf-sicbo__board">
+                {config.sicbo.map((b) => (
+                  <button
+                    key={b.id}
+                    className={`lf-bettile${bets[b.id] ? " lf-bettile--active" : ""}`}
+                    aria-pressed={!!bets[b.id]}
+                    onClick={() => {
+                      if (!rolling && balance - totalBet >= chipVal) {
+                        setBets((p) => ({ ...p, [b.id]: (p[b.id] || 0) + chipVal }));
+                      }
+                    }}
+                  >
+                    <span className="lf-bettile__label">{b.label}</span>
+                    <span className="lf-bettile__meta">
+                      {bets[b.id] > 0 ? (
+                        <span className="lf-bettile__stake">${bets[b.id]} on {b.payout}:1</span>
+                      ) : (
+                        `pays ${b.payout}:1`
+                      )}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="lf-total" aria-live="polite">
+                Total bet ${totalBet}
+              </div>
+              <div className="lf-actions">
+                <button
+                  className="lf-btn lf-btn--gold lf-btn--wide"
+                  onClick={roll}
+                  disabled={rolling || totalBet <= 0 || totalBet > balance}
+                >
+                  {rolling ? "Rolling…" : "Roll the dice"}
+                </button>
+                <button className="lf-btn lf-btn--ghost" onClick={() => setBets({})} disabled={rolling}>
+                  Clear bets
+                </button>
+              </div>
+            </>
+          )}
+
+          <ResultBanner result={result} />
+          <ErrorNotice error={err} />
+        </section>
+      </main>
     </div>
   );
 }

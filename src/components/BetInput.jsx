@@ -18,24 +18,24 @@ export default function BetInput({ balance, bet, setBet, disabled }) {
           </button>
         ))}
         <button
-          className="lf-btn lf-btn--ghost lf-btn--tiny"
+          className="lf-btn lf-btn--ghost lf-btn--sm"
           disabled={disabled}
           onClick={() => setBet(0)}
           aria-label="Clear bet"
         >
-          CLR
+          Clear
         </button>
         <button
-          className="lf-btn lf-btn--ghost lf-btn--tiny"
+          className="lf-btn lf-btn--ghost lf-btn--sm"
           disabled={disabled}
           onClick={() => setBet((b) => Math.min(b * 2, balance))}
           aria-label="Double bet"
         >
-          2×
+          Double
         </button>
       </div>
       <div className="lf-betinput__total" aria-live="polite">
-        Bet: <span className="lf-betinput__amount">${bet}</span>
+        Bet <span className="lf-betinput__amount">${bet}</span>
       </div>
     </div>
   );

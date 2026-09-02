@@ -160,90 +160,100 @@ export default function PokerGame({ user, onUpdate, onBack, onAtm, onError }) {
   }
 
   return (
-    <div className="lf-app lf-app--game">
-      <GameHeader title="Texas Hold'em Poker" balance={balance} onBack={onBack} onAtm={onAtm} />
-      <div className="lf-panel">
-        <div className="lf-section-title">Dealer's hand</div>
-        <div className="lf-poker__cards">
-          {phase === "bet" ? (
-            <span className="lf-poker__placeholder">waiting for deal…</span>
-          ) : revealed ? (
-            dealer.map((c, i) => <Card key={i} card={c} />)
-          ) : (
-            [0, 1].map((i) => <Card key={i} card={{}} hidden />)
-          )}
-        </div>
-
-        <div className="lf-section-title lf-section-title--spaced">Community cards</div>
-        <div className="lf-poker__cards">
-          {community.map((c, i) => (
-            <Card key={i} card={c} />
-          ))}
-          {!community.length && <span className="lf-poker__placeholder">awaiting flop…</span>}
-        </div>
-
-        <div className="lf-section-title lf-section-title--spaced">Your hand</div>
-        <div className="lf-poker__cards">
-          {player.map((c, i) => (
-            <Card key={i} card={c} />
-          ))}
-          {!player.length && <span className="lf-poker__placeholder">waiting for deal…</span>}
-        </div>
-
-        <div className="lf-poker__controls">
-          {phase === "bet" &&
-            (broke ? (
-              <BrokeNotice onAtm={onAtm} />
-            ) : (
-              <>
-                <BetInput balance={balance} bet={bet} setBet={setBet} disabled={busy} />
-                <button
-                  className="lf-btn lf-btn--gold lf-poker__deal"
-                  onClick={deal}
-                  disabled={busy || bet <= 0 || bet > balance}
-                >
-                  {busy ? "Dealing…" : "Deal cards"}
-                </button>
-              </>
-            ))}
-          {phase === "deal" && (
-            <div className="lf-poker__actions">
-              <button className="lf-btn lf-btn--green" onClick={advance} disabled={busy}>
-                Check / see flop
-              </button>
-              <button className="lf-btn lf-btn--red" onClick={fold} disabled={busy}>
-                Fold
-              </button>
+    <div className="lf-app">
+      <GameHeader title="Texas Hold'em" balance={balance} onBack={onBack} onAtm={onAtm} />
+      <main className="lf-shell lf-game lf-game--narrow">
+        <section className="lf-panel lf-poker">
+          <div className="lf-poker__table">
+            <div className="lf-poker__row">
+              <h2 className="lf-poker__rowtitle">Dealer</h2>
+              <div className="lf-poker__cards">
+                {phase === "bet" ? (
+                  <span className="lf-poker__placeholder">Waiting for the deal</span>
+                ) : revealed ? (
+                  dealer.map((c, i) => <Card key={i} card={c} />)
+                ) : (
+                  [0, 1].map((i) => <Card key={i} card={{}} hidden />)
+                )}
+              </div>
             </div>
-          )}
-          {phase === "flop" && (
-            <button className="lf-btn lf-btn--green" onClick={advance} disabled={busy}>
-              Check / see turn
-            </button>
-          )}
-          {phase === "turn" && (
-            <button className="lf-btn lf-btn--green" onClick={advance} disabled={busy}>
-              Check / see river
-            </button>
-          )}
-          {phase === "river" && (
-            <button className="lf-btn lf-btn--gold" onClick={showdown} disabled={busy}>
-              Go to showdown
-            </button>
-          )}
-        </div>
 
-        <div className="lf-poker__pot" aria-live="polite">
-          Pot: ${pot}
-        </div>
-        <ResultBanner result={result} />
-        <ErrorNotice error={err} />
-        {phase === "showdown" && (
-          <button className="lf-btn lf-btn--gold lf-poker__replay" onClick={reset}>
-            New hand
-          </button>
-        )}
-      </div>
+            <div className="lf-poker__row">
+              <h2 className="lf-poker__rowtitle">Board</h2>
+              <div className="lf-poker__cards">
+                {community.map((c, i) => (
+                  <Card key={i} card={c} />
+                ))}
+                {!community.length && <span className="lf-poker__placeholder">Awaiting the flop</span>}
+              </div>
+            </div>
+
+            <div className="lf-poker__row">
+              <h2 className="lf-poker__rowtitle">You</h2>
+              <div className="lf-poker__cards">
+                {player.map((c, i) => (
+                  <Card key={i} card={c} />
+                ))}
+                {!player.length && <span className="lf-poker__placeholder">Waiting for the deal</span>}
+              </div>
+            </div>
+          </div>
+
+          <div className="lf-poker__controls">
+            {phase === "bet" &&
+              (broke ? (
+                <BrokeNotice onAtm={onAtm} />
+              ) : (
+                <>
+                  <BetInput balance={balance} bet={bet} setBet={setBet} disabled={busy} />
+                  <button
+                    className="lf-btn lf-btn--gold lf-btn--wide"
+                    onClick={deal}
+                    disabled={busy || bet <= 0 || bet > balance}
+                  >
+                    {busy ? "Dealing…" : "Deal cards"}
+                  </button>
+                </>
+              ))}
+            {phase === "deal" && (
+              <div className="lf-actions">
+                <button className="lf-btn lf-btn--green" onClick={advance} disabled={busy}>
+                  Check / see flop
+                </button>
+                <button className="lf-btn lf-btn--red" onClick={fold} disabled={busy}>
+                  Fold
+                </button>
+              </div>
+            )}
+            {phase === "flop" && (
+              <button className="lf-btn lf-btn--green" onClick={advance} disabled={busy}>
+                Check / see turn
+              </button>
+            )}
+            {phase === "turn" && (
+              <button className="lf-btn lf-btn--green" onClick={advance} disabled={busy}>
+                Check / see river
+              </button>
+            )}
+            {phase === "river" && (
+              <button className="lf-btn lf-btn--gold" onClick={showdown} disabled={busy}>
+                Go to showdown
+              </button>
+            )}
+          </div>
+
+          <div className="lf-poker__pot" aria-live="polite">
+            Pot <b>${pot}</b>
+          </div>
+          <ResultBanner result={result} />
+          <ErrorNotice error={err} />
+          {phase === "showdown" && (
+            <button className="lf-btn lf-btn--gold lf-poker__replay" onClick={reset}>
+              New hand
+            </button>
+          )}
+        </section>
+      </main>
     </div>
   );
 }

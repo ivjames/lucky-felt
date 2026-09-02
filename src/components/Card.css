@@ -1,71 +1,122 @@
 .lf-card {
-  width: 52px;
-  height: 74px;
+  position: relative;
+  width: 60px;
+  height: 84px;
   border-radius: 7px;
-  border: 2px solid var(--lf-gold);
-  display: inline-flex;
-  margin: 0 3px;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
+  flex: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
 }
 
 .lf-card--small {
-  width: 38px;
-  height: 54px;
+  width: 44px;
+  height: 62px;
 }
 
-.lf-card--hidden {
-  background: linear-gradient(135deg, #2a5a38, var(--lf-panel-alt));
-  align-items: center;
-  justify-content: center;
-}
-
+/* ---- Face-up: cream paper, suit-coloured ink ---- */
 .lf-card--face {
-  background: #22203a;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  padding: 3px 4px;
+  background: linear-gradient(160deg, #ffffff 0%, var(--lf-paper) 45%, var(--lf-paper-edge) 100%);
+  border: 1px solid var(--lf-paper-edge);
+  display: block;
+  padding: 5px 6px;
 }
 
-/* Suit colour cascades to the rank and pip spans. */
 .lf-card--red {
-  color: #ff6b6b;
+  color: var(--lf-ink-red);
 }
 
 .lf-card--black {
-  color: var(--lf-text);
+  color: var(--lf-ink);
 }
 
-.lf-card__back {
-  color: var(--lf-gold);
-  font-size: 24px;
-}
-
-.lf-card--small .lf-card__back {
-  font-size: 18px;
-}
-
-.lf-card__rank {
-  font-weight: 700;
-  font-size: 14px;
+.lf-card__index {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   line-height: 1;
+  gap: 1px;
 }
 
-.lf-card--small .lf-card__rank {
-  font-size: 11px;
+.lf-card__index--tl {
+  top: 5px;
+  left: 6px;
 }
 
-.lf-card__rank--inverted {
-  align-self: flex-end;
+.lf-card__index--br {
+  bottom: 5px;
+  right: 6px;
   transform: rotate(180deg);
 }
 
-.lf-card__suit {
-  font-size: 18px;
-  line-height: 1;
-  margin: auto;
+.lf-card__rank {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
-.lf-card--small .lf-card__suit {
-  font-size: 13px;
+.lf-card--small .lf-card__rank {
+  font-size: 12px;
+}
+
+.lf-card__mini {
+  width: 9px;
+  height: 9px;
+}
+
+.lf-card--small .lf-card__mini {
+  width: 7px;
+  height: 7px;
+}
+
+.lf-card__pip {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.95;
+}
+
+.lf-card--small .lf-card__pip {
+  width: 21px;
+  height: 21px;
+}
+
+/* ---- Face-down: house back ---- */
+.lf-card--back {
+  border: 1px solid var(--lf-gold-soft);
+  overflow: hidden;
+  background: var(--lf-surface-4);
+}
+
+.lf-card__pattern {
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 560px) {
+  .lf-card {
+    width: 50px;
+    height: 70px;
+  }
+
+  .lf-card__rank {
+    font-size: 13px;
+  }
+
+  .lf-card__pip {
+    width: 25px;
+    height: 25px;
+  }
+
+  .lf-card__index--tl {
+    top: 4px;
+    left: 4px;
+  }
+
+  .lf-card__index--br {
+    bottom: 4px;
+    right: 4px;
+  }
 }

@@ -1,29 +1,37 @@
-.lf-header--game {
-  display: flex;
-  align-items: center;
+.lf-gameheader {
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px;
 }
 
 .lf-gameheader__title {
   color: var(--lf-gold);
   font-weight: 700;
-  letter-spacing: 0.1em;
-  font-size: 15px;
+  font-size: clamp(15px, 2.4vw, 19px);
+  letter-spacing: 0.01em;
+  margin: 0;
+  text-align: center;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .lf-gameheader__aside {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .lf-gameheader__balance {
   color: var(--lf-gold);
-  font-weight: 700;
+  font-weight: 800;
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.lf-gameheader__balance-value {
-  font-size: 18px;
+@media (max-width: 520px) {
+  .lf-gameheader__title {
+    order: 3;
+    flex-basis: 100%;
+    text-align: left;
+  }
 }

@@ -1,0 +1,16 @@
+.lf-wheel {
+  width: clamp(220px, 62vw, 320px);
+  height: clamp(220px, 62vw, 320px);
+  filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.5));
+}
+
+.lf-wheel__rim {
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+  transition: transform 1.05s cubic-bezier(0.16, 0.84, 0.32, 1);
+}
+
+.lf-wheel__rim--spinning {
+  animation: lf-wheel-spin 0.85s linear infinite;
+  transition: none;
+}

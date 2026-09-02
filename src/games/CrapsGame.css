@@ -1,46 +1,57 @@
+.lf-craps__stage {
+  gap: 18px;
+}
+
+.lf-craps__readout {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  margin-top: 18px;
+}
+
+.lf-craps__stat {
+  flex: 1;
+  background: var(--lf-surface-4);
+  border: 1px solid var(--lf-line);
+  border-radius: var(--lf-radius-sm);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lf-craps__stat-label {
+  color: var(--lf-text-dim);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lf-craps__stat-value {
+  color: var(--lf-gold);
+  font-size: 24px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.lf-craps__msg {
+  color: var(--lf-text-dim);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 16px 0 0;
+  text-align: center;
+}
+
 .lf-craps__types {
   display: flex;
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: 10px;
+  margin-bottom: 16px;
 }
 
 .lf-craps__type {
   flex: 1;
 }
 
-.lf-craps__point {
-  color: var(--lf-gold);
-  font-size: 20px;
-  font-weight: 700;
-  text-align: center;
-  margin-bottom: 10px;
-}
-
-.lf-craps__dice {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  margin: 18px 0;
-}
-
-.lf-craps__die {
-  font-size: 60px;
-  line-height: 1;
-}
-
-.lf-craps__sum {
-  text-align: center;
-  color: var(--lf-muted);
-  font-size: 15px;
-  margin-bottom: 8px;
-}
-
-.lf-craps__msg {
-  color: var(--lf-muted);
-  font-size: 12px;
-  margin: 8px 0;
-}
-
 .lf-craps__replay {
-  margin-top: 10px;
+  margin-top: 12px;
 }

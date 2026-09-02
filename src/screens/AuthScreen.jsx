@@ -1,5 +1,7 @@
 import { useState } from "react";
 import * as api from "../api";
+import BrandMark from "../components/icons/BrandMark";
+import { BackIcon } from "../components/icons/UiIcons";
 import "./AuthScreen.css";
 
 export default function AuthScreen({ onLogin }) {
@@ -53,13 +55,14 @@ export default function AuthScreen({ onLogin }) {
   return (
     <div className="lf-app lf-app--centered">
       <div className="lf-panel lf-auth">
-        <div className="lf-title" role="heading" aria-level="1">
-          🎰 LUCKY FELT
+        <div className="lf-brand">
+          <BrandMark className="lf-brand__mark" />
+          <h1 className="lf-title">Lucky Felt</h1>
         </div>
-        <div className="lf-subtitle">CASINO &amp; GAMING CLUB</div>
+        <p className="lf-subtitle">Casino &amp; gaming club</p>
         {step === "email" ? (
           <>
-            <div className="lf-auth__prompt">ENTER YOUR EMAIL TO PLAY</div>
+            <h2 className="lf-auth__prompt">Enter your email to play</h2>
             <label htmlFor="email-input" className="lf-visually-hidden">
               Email address
             </label>
@@ -81,11 +84,11 @@ export default function AuthScreen({ onLogin }) {
             >
               {loading ? "Sending…" : "Email me a code"}
             </button>
-            <div className="lf-auth__hint">No password — we email you a one-time sign-in code.</div>
+            <p className="lf-auth__hint">No password — we email you a one-time sign-in code.</p>
           </>
         ) : (
           <>
-            <div className="lf-auth__prompt">ENTER YOUR 6-DIGIT CODE</div>
+            <h2 className="lf-auth__prompt">Enter your 6-digit code</h2>
             <label htmlFor="code-input" className="lf-visually-hidden">
               Sign-in code
             </label>
@@ -118,7 +121,8 @@ export default function AuthScreen({ onLogin }) {
                 }}
                 disabled={loading}
               >
-                ← Change email
+                <BackIcon className="lf-btn__icon" />
+                Change email
               </button>
               <button className="lf-btn lf-btn--ghost lf-btn--sm" onClick={sendCode} disabled={loading}>
                 Resend code

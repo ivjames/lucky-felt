@@ -38,11 +38,15 @@ export default function RouletteGame({ user, onUpdate, onBack, onAtm, onError, c
     if (spinning || !canAdd) return;
     setBets((p) => ({ ...p, [id]: (p[id] || 0) + chipVal }));
   };
-  const removeBet = (id) => {
+  // Takes one chip (the current chip value) off; clears the bet when that
+  // would leave nothing.
+  const subtractBet = (id) => {
     if (spinning) return;
     setBets((p) => {
       const next = { ...p };
-      delete next[id];
+      const left = (next[id] || 0) - chipVal;
+      if (left > 0) next[id] = left;
+      else delete next[id];
       return next;
     });
   };
@@ -136,7 +140,7 @@ export default function RouletteGame({ user, onUpdate, onBack, onAtm, onError, c
           ) : (
             <>
               <h2 className="lf-section-title lf-section-title--spaced">Place your bets</h2>
-              <p className="lf-section-hint">Tap a bet to place a chip. On a placed bet, + adds another chip and × takes it off.</p>
+              <p className="lf-section-hint">Tap a bet to place a chip. On a placed bet, + adds a chip, − takes one off, and × clears it.</p>
               <div className="lf-roulette__board">
                 {config.roulette.map((b) => (
                   <BetTile
@@ -156,7 +160,7 @@ export default function RouletteGame({ user, onUpdate, onBack, onAtm, onError, c
                     disabled={spinning}
                     canAdd={canAdd}
                     onAdd={() => addBet(b.id)}
-                    onRemove={() => removeBet(b.id)}
+                    onSubtract={() => subtractBet(b.id)}
                   />
                 ))}
               </div>

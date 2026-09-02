@@ -1,11 +1,13 @@
 // One bet on a roulette or sic bo board.
 //
 // Tapping the tile places the current chip (and stacks another on a placed
-// bet). A placed bet also shows two small controls: + adds another chip, ×
-// takes the whole bet off. Placed state is announced through aria-pressed on
-// the main control; the tools carry explicit labels.
-export default function BetTile({ name, label, payoutText, stake, chipVal, disabled, canAdd, onAdd, onRemove }) {
+// bet). A placed bet also shows two small controls: + adds another chip; the
+// second is − while more than one chip's worth is down (takes one chip off)
+// and × once a single tap would clear it. Placed state is announced through
+// aria-pressed on the main control; the tools carry explicit labels.
+export default function BetTile({ name, label, payoutText, stake, chipVal, disabled, canAdd, onAdd, onSubtract }) {
   const placed = stake > 0;
+  const clears = stake <= chipVal;
   return (
     <div className={`lf-bettile${placed ? " lf-bettile--active" : ""}`}>
       <button
@@ -38,12 +40,12 @@ export default function BetTile({ name, label, payoutText, stake, chipVal, disab
           </button>
           <button
             type="button"
-            className="lf-bettile__tool lf-bettile__tool--remove"
-            aria-label={`Remove bet on ${name}`}
+            className={`lf-bettile__tool${clears ? " lf-bettile__tool--remove" : ""}`}
+            aria-label={clears ? `Remove bet on ${name}` : `Remove $${chipVal} from ${name}`}
             disabled={disabled}
-            onClick={onRemove}
+            onClick={onSubtract}
           >
-            ×
+            {clears ? "×" : "−"}
           </button>
         </span>
       )}

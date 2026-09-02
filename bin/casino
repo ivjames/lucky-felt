@@ -74,15 +74,16 @@ USAGE
 # --update-env` carry it. Values with spaces (MAIL_FROM) must be quoted in the
 # file; see server/.env.example.
 load_env() {
+  # pm2 --update-env adds and changes variables but never removes one, so a
+  # key deleted from .env would live on in the process; and a value inherited
+  # from the calling shell must not stand in for it either. Set the one key
+  # whose absence must mean "off" to 0 first; .env may then override it.
+  export AUTH_SHOW_CODE=0
   if [ -f "$API_DIR/.env" ]; then
     set -a
     # shellcheck disable=SC1091
     . "$API_DIR/.env"
     set +a
-    # pm2 --update-env adds and changes variables but never removes one, so a
-    # key deleted from .env would live on in the process. Always pass an
-    # explicit value for the one key whose absence must mean "off".
-    export AUTH_SHOW_CODE="${AUTH_SHOW_CODE:-0}"
     # The port lives in three places: the vhost's proxy_pass, the API's .env,
     # and this CLI's probe. A mismatch is a 502 that looks like a dead app.
     if [ -n "${PORT:-}" ] && [ "$PORT" != "$CLI_PORT" ]; then

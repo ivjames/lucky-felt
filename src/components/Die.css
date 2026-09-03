@@ -9,36 +9,50 @@
   transform: translateZ(calc(var(--lf-lift) + 4px));
   /* The die's own perspective, so a cube tumbling inside it still reads as a
      cube even though the tray around it is only gently pitched. */
-  perspective: 420px;
+  perspective: 380px;
 }
 
-.lf-die {
+/* Landing wrapper: the drop-and-bounce lives here so the cube underneath
+   keeps its own rotation. */
+.lf-die-bounce {
+  display: block;
   width: 100%;
   height: 100%;
-  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+  transform-style: preserve-3d;
 }
 
-/* Three tumbles, dealt out by position, each started a beat before the last. */
-.lf-die--rolling {
-  animation: lf-tumble-a 0.62s linear infinite;
-  animation-delay: calc(var(--lf-die-i, 0) * -0.13s);
-}
-
-.lf-die-slot:nth-child(2) .lf-die--rolling {
-  animation-name: lf-tumble-b;
-  animation-duration: 0.55s;
-}
-
-.lf-die-slot:nth-child(3) .lf-die--rolling {
-  animation-name: lf-tumble-c;
-  animation-duration: 0.68s;
-}
-
-/* Arriving: a drop, a bounce and a settle, staggered across the tray. */
-.lf-die--landed {
+.lf-die-bounce--land {
   animation: lf-die-land 0.46s cubic-bezier(0.3, 0.9, 0.35, 1) both;
   animation-delay: calc(var(--lf-die-i, 0) * 80ms);
 }
+
+/* The cube. No filter on it or its parents: a filter flattens preserve-3d. */
+.lf-cube {
+  /* The solid body showing at the edges and corners, where the rounded faces
+     don't quite reach: a shade under the paper so edges read, never dark. */
+  --lf-die-body: #e9e4d9;
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.lf-cube__face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+}
+
+/* A little lighting: the top catches the room, the underside sits in shadow. */
+.lf-cube__face--top { filter: brightness(1.06); }
+.lf-cube__face--left,
+.lf-cube__face--right { filter: brightness(0.92); }
+.lf-cube__face--back { filter: brightness(0.9); }
+.lf-cube__face--bottom { filter: brightness(0.82); }
 
 /* ---- The tray ------------------------------------------------------------
    Pitched away from the viewer by the stage wrapper it sits in. */

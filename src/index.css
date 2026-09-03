@@ -226,57 +226,6 @@ svg {
    goes edge-on and a die with no thickness simply vanishes. The spin around Z
    carries the tumble, the two rocks make it three-dimensional, and the faces
    cycling underneath do the rest. */
-@keyframes lf-tumble-a {
-  0% {
-    transform: rotateZ(0deg) rotateX(0deg) rotateY(0deg) translateY(0);
-  }
-  25% {
-    transform: rotateZ(96deg) rotateX(62deg) rotateY(-38deg) translateY(-9px);
-  }
-  50% {
-    transform: rotateZ(184deg) rotateX(-14deg) rotateY(54deg) translateY(-2px);
-  }
-  75% {
-    transform: rotateZ(272deg) rotateX(-58deg) rotateY(22deg) translateY(-8px);
-  }
-  100% {
-    transform: rotateZ(360deg) rotateX(0deg) rotateY(0deg) translateY(0);
-  }
-}
-
-@keyframes lf-tumble-b {
-  0% {
-    transform: rotateZ(0deg) rotateX(0deg) rotateY(0deg) translateY(0);
-  }
-  30% {
-    transform: rotateZ(-104deg) rotateX(-46deg) rotateY(58deg) translateY(-6px);
-  }
-  60% {
-    transform: rotateZ(-212deg) rotateX(50deg) rotateY(-30deg) translateY(-11px);
-  }
-  100% {
-    transform: rotateZ(-360deg) rotateX(0deg) rotateY(0deg) translateY(0);
-  }
-}
-
-@keyframes lf-tumble-c {
-  0% {
-    transform: rotateZ(0deg) rotateX(0deg) rotateY(0deg) translateY(0);
-  }
-  22% {
-    transform: rotateZ(84deg) rotateX(-64deg) rotateY(-24deg) translateY(-12px);
-  }
-  55% {
-    transform: rotateZ(198deg) rotateX(28deg) rotateY(66deg) translateY(-3px);
-  }
-  80% {
-    transform: rotateZ(292deg) rotateX(56deg) rotateY(-44deg) translateY(-9px);
-  }
-  100% {
-    transform: rotateZ(360deg) rotateX(0deg) rotateY(0deg) translateY(0);
-  }
-}
-
 /* …and the bounce once it stops tumbling. */
 @keyframes lf-die-land {
   0% {

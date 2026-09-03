@@ -28,6 +28,9 @@
 
 /* The cube. No filter on it or its parents: a filter flattens preserve-3d. */
 .lf-cube {
+  /* The solid body showing at the edges and corners, where the rounded faces
+     don't quite reach: a shade under the paper so edges read, never dark. */
+  --lf-die-body: #e9e4d9;
   position: relative;
   display: block;
   width: 100%;

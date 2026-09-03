@@ -26,6 +26,24 @@ const FACES = [
 // Cube rotation [rx, ry] that brings a given value to the front.
 const ORIENT = { 1: [0, 0], 6: [0, 180], 2: [0, -90], 5: [0, 90], 3: [-90, 0], 4: [90, 0] };
 
+// The pose the browser is drawing right now, read back from the computed
+// transform. Only needed when a settle transition is cut short by the next
+// roll: the rotation we remember is the transition's endpoint, not what is on
+// screen, and starting the tumble from the endpoint would visibly snap. Our
+// transform is always rotateX(a) rotateY(b), so the matrix decomposes exactly:
+// row 0 is [cos b, 0, sin b] and column 1 is [0, cos a, sin a].
+function readPose(el) {
+  try {
+    const t = getComputedStyle(el).transform;
+    if (!t || t === "none") return null;
+    const m = new DOMMatrix(t);
+    const deg = 180 / Math.PI;
+    return { rx: Math.atan2(m.m23, m.m22) * deg, ry: Math.atan2(m.m31, m.m11) * deg };
+  } catch {
+    return null;
+  }
+}
+
 function Face({ v, place, role }) {
   const u = 32 / 4;
   return (
@@ -36,6 +54,7 @@ function Face({ v, place, role }) {
       aria-hidden="true"
       focusable="false"
     >
+      <rect x="0" y="0" width="32" height="32" fill="var(--lf-die-body)" />
       <rect x="0.8" y="0.8" width="30.4" height="30.4" rx="5.5" fill="var(--lf-paper)" />
       <rect x="0.8" y="0.8" width="30.4" height="30.4" rx="5.5" fill="none" stroke="var(--lf-paper-edge)" strokeWidth="1.1" />
       <path d="M6 2.4h20a3.6 3.6 0 0 1 2.8 1.3H3.2A3.6 3.6 0 0 1 6 2.4Z" fill="#fff" opacity="0.75" />
@@ -78,6 +97,10 @@ export default function Die({ value, rolling = false, size = 72, index = 0 }) {
 
     if (rolling) {
       wasRolling.current = true;
+      // Pick up from the pose actually on screen (see readPose), then stop
+      // any settle transition still in flight.
+      const pose = readPose(el);
+      if (pose) rot.current = pose;
       el.style.transition = "none";
       // Angular velocities in deg/s, different per die so the tray never
       // moves in lockstep; direction alternates.

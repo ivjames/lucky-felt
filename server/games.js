@@ -100,16 +100,23 @@ export function compareTB(a, b) {
 // `getWin` is generated from `paylines` (getWinFromPaylines below) instead of
 // being hand-written per machine, so the paid-out amount and the displayed
 // paytable can never diverge again. A rule matches by testing the leftmost
-// `count` reels against `symbol` ({ symbol, count, m }), or by testing whether
-// any symbol appears at least `count` times anywhere in the result
-// ({ any: true, count, m }). Rules are evaluated in array order and the first
+// `count` reels against `symbol` ({ symbol, count, m }), by counting `symbol`
+// in any position ({ symbol, count, m, anywhere: true }, the partial cherry
+// lines), or by testing whether any symbol appears at least `count` times
+// anywhere in the result ({ any: true, count, m }). Rules are evaluated in array order and the first
 // match pays — so within each machine's paylines, list specific-symbol rules
 // before generic `any` rules, and within same-symbol rules list the highest
 // count/multiplier first (a 3-of-a-kind rule must come before a weaker 1- or
 // 2-of-a-kind rule for the same symbol, or the weaker rule would fire first).
-function symbolRuleWin(reel, symbol, count, m, bet) {
+function symbolRuleWin(reel, symbol, count, m, bet, anywhere) {
   if (reel.length < count) return null;
-  for (let i = 0; i < count; i++) if (reel[i] !== symbol) return null;
+  if (anywhere) {
+    // Scatter-style: the symbol pays wherever it lands, as the paytable's
+    // "2 × Cherry" reads to a player. Used for the partial cherry lines.
+    if (reel.filter((x) => x === symbol).length < count) return null;
+  } else {
+    for (let i = 0; i < count; i++) if (reel[i] !== symbol) return null;
+  }
   return m < 1 ? Math.ceil(bet * m) : bet * m;
 }
 function anyRuleWin(reel, count, m, bet) {
@@ -123,7 +130,7 @@ function getWinFromPaylines(paylines, reel, bet) {
   for (const rule of paylines) {
     const amount = rule.any
       ? anyRuleWin(reel, rule.count, rule.m, bet)
-      : symbolRuleWin(reel, rule.symbol, rule.count, rule.m, bet);
+      : symbolRuleWin(reel, rule.symbol, rule.count, rule.m, bet, rule.anywhere);
     if (amount !== null) return amount;
   }
   return 0;
@@ -133,15 +140,15 @@ const SLOTS1_PAYLINES = [
   { symbol: "seven", count: 3, m: 100 }, { symbol: "diamond", count: 3, m: 50 },
   { symbol: "bar", count: 3, m: 20 }, { symbol: "star", count: 3, m: 10 },
   { symbol: "bell", count: 3, m: 10 },
-  { symbol: "cherry", count: 3, m: 5 }, { symbol: "cherry", count: 2, m: 2 },
-  { symbol: "cherry", count: 1, m: 0.5 },
+  { symbol: "cherry", count: 3, m: 5 }, { symbol: "cherry", count: 2, m: 2, anywhere: true },
+  { symbol: "cherry", count: 1, m: 0.5, anywhere: true },
 ];
 const SLOTS2_PAYLINES = [
   { symbol: "star", count: 3, m: 75 }, { symbol: "melon", count: 3, m: 30 },
   { symbol: "grape", count: 3, m: 25 }, { symbol: "peach", count: 3, m: 20 },
   { symbol: "strawberry", count: 3, m: 15 }, { symbol: "orange", count: 3, m: 12 },
   { symbol: "lemon", count: 3, m: 10 }, { symbol: "cherry", count: 3, m: 8 },
-  { symbol: "cherry", count: 2, m: 3 }, { symbol: "cherry", count: 1, m: 0.5 },
+  { symbol: "cherry", count: 2, m: 3, anywhere: true }, { symbol: "cherry", count: 1, m: 0.5, anywhere: true },
 ];
 const SLOTS3_PAYLINES = [
   { symbol: "rocket", count: 5, m: 500 }, { symbol: "sun", count: 5, m: 200 },

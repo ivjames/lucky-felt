@@ -12,13 +12,17 @@ import { SLOT_CONFIGS } from "../games.js";
 
 // Independent re-implementation of the paytable semantics (does not import
 // games.js's own evaluator): a { symbol, count, m } rule pays when the
-// leftmost `count` reels are all `symbol`; a { any: true, count, m } rule
+// leftmost `count` reels are all `symbol` (or, with anywhere: true, `symbol`
+// appears at least `count` times in any position); a { any: true, count, m } rule
 // pays when some symbol appears at least `count` times anywhere in the
 // result. First matching rule in array order wins.
 function expectedWin(paylines, reel, bet) {
   for (const rule of paylines) {
     if (rule.symbol) {
-      if (reel.length >= rule.count && reel.slice(0, rule.count).every((s) => s === rule.symbol)) {
+      const hit = rule.anywhere
+        ? reel.filter((s) => s === rule.symbol).length >= rule.count
+        : reel.length >= rule.count && reel.slice(0, rule.count).every((s) => s === rule.symbol);
+      if (hit) {
         return rule.m < 1 ? Math.ceil(bet * rule.m) : bet * rule.m;
       }
     } else if (rule.any) {

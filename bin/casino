@@ -160,10 +160,13 @@ write_ecosystem() {
         key="${line%%=*}"; val="${line#*=}"
         key="${key%"${key##*[![:space:]]}"}"
         case "$key" in [!A-Za-z_]*|*[!A-Za-z0-9_]*) continue;; esac
+        # As the shell read it: a quoted value ends at its closing quote and
+        # anything after is ignored; a bare one ends at ` #`, then rtrim.
         case "$val" in
-          \"*\") val="${val#\"}"; val="${val%\"}";;              # "quoted"
-          \'*\') val="${val#\'}"; val="${val%\'}";;              # 'quoted'
-          *)     val="${val%"${val##*[![:space:]]}"}";;          # bare: rtrim
+          \"*) val="${val#\"}"; val="${val%%\"*}";;                 # "quoted"
+          \'*) val="${val#\'}"; val="${val%%\'*}";;                 # 'quoted'
+          *)   val="${val%%[[:space:]]#*}"
+               val="${val%"${val##*[![:space:]]}"}";;             # bare: rtrim
         esac
         # The port lives in three places: the vhost's proxy_pass, the API's
         # .env, and this CLI's probe. A mismatch is a 502 that looks like a
@@ -248,7 +251,7 @@ pm2_registered() { pm2_clean describe "$APP" >/dev/null 2>&1; }
 # path is the truth about the box; the default /var/www/casino-api is only a
 # guess. Copying server/ anywhere else restarts a process that never sees it.
 pm2_script_path() {
-  pm2_clean jlist 2>/dev/null | APP="$APP" python3 -c '
+  pm2_jlist 2>/dev/null | APP="$APP" python3 -c '
 import json,os,sys
 try: procs=json.load(sys.stdin)
 except Exception: procs=[]
@@ -420,7 +423,7 @@ seed_env() {
   local tmp; tmp="$(mktemp "$API_DIR/.env.XXXXXX")"; chmod 600 "$tmp"
   if pm2_registered; then
     log "capturing env from the running pm2 process $APP into $envf"
-    if ! pm2_clean jlist 2>/dev/null | ENV_KEYS="$ENV_KEYS" APP="$APP" python3 -c '
+    if ! pm2_jlist 2>/dev/null | ENV_KEYS="$ENV_KEYS" APP="$APP" python3 -c '
 import json,os,sys
 procs=json.load(sys.stdin)
 p=[x for x in procs if x.get("name")==os.environ["APP"]]
@@ -545,7 +548,7 @@ cmd_status() {
     printf 'api dir:    %s (no %s — not yet deployed by this CLI)\n' "$API_DIR" "$STAMP"
   fi
   printf 'pm2:        '
-  pm2_clean jlist 2>/dev/null \
+  pm2_jlist 2>/dev/null \
     | python3 -c "import json,sys
 try: procs=json.load(sys.stdin)
 except Exception: procs=[]

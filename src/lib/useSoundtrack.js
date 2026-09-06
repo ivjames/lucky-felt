@@ -55,22 +55,26 @@ function shuffle(length, avoid) {
 
 export function useSoundtrack() {
   const [prefs, setPrefs] = useState(loadPrefs);
-  const [order, setOrder] = useState(() => shuffle(TRACKS.length));
-  const [cursor, setCursor] = useState(0);
+  /* The order and the position in it are one value, not two. Splitting them
+   * meant advancing had to reshuffle from inside the cursor's updater, and an
+   * updater that calls another setter is not pure — StrictMode double-invokes
+   * it, so the reshuffle ran twice and the `avoid` guard below could end up
+   * measured against an order that was then thrown away. */
+  const [queue, setQueue] = useState(() => ({ order: shuffle(TRACKS.length), cursor: 0 }));
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef(null);
 
-  const track = TRACKS[order[cursor]];
+  const track = TRACKS[queue.order[queue.cursor]];
 
   useEffect(() => savePrefs(prefs), [prefs]);
 
   const advance = useCallback(() => {
-    setCursor((c) => {
-      if (c + 1 < order.length) return c + 1;
-      setOrder((o) => shuffle(TRACKS.length, o[c]));
-      return 0;
-    });
-  }, [order.length]);
+    setQueue(({ order, cursor }) =>
+      cursor + 1 < order.length
+        ? { order, cursor: cursor + 1 }
+        : { order: shuffle(TRACKS.length, order[cursor]), cursor: 0 },
+    );
+  }, []);
 
   /* One <audio> for the life of the app. It is created here rather than
    * rendered as JSX so that navigating between the lobby and a game — which

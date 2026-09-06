@@ -223,11 +223,50 @@ describe() { # <code> <ok|body|-> -> human suffix
   esac
 }
 
+# First /assets/*.js reference in an HTML stream. Applied to both sides of the
+# comparison below, so it does not matter which of Vite's several references it
+# lands on as long as it lands on the same one.
+# The `|| true` matters: under `pipefail` a grep that matches nothing fails the
+# whole pipeline, and this runs inside an assignment under `set -e`.
+bundle_ref() { grep -oE '/assets/[A-Za-z0-9._-]+\.js' | head -1 || true; }
+
+# What the site actually hands out, against what dist/ holds.
+#
+# The site probe below asserts a 200 and nothing else, and this vhost answers
+# `try_files $uri $uri/ /index.html` — so a stale site serving the previous
+# release returns 200, and so does a request for a bundle that is not there at
+# all, because nginx hands back index.html instead. A deploy whose build never
+# reached the web root therefore passed its own health check and reported a
+# good rollout. These two questions are what "deployed" actually means.
+bundle_probe() {
+  local built served ctype fail=0
+  [ -f "$ROOT/dist/index.html" ] || { warn "no dist/index.html to compare against; skipping the bundle check"; return 0; }
+  built="$(bundle_ref <"$ROOT/dist/index.html")"
+  served="$(curl -s --max-time 10 "https://$FQDN/" | bundle_ref || true)"
+  printf 'bundle:     dist/ has %s, site serves %s\n' "${built:-(none found)}" "${served:-(none found)}"
+  [ -n "$built" ] || { warn "no script reference in dist/index.html; skipping the bundle check"; return 0; }
+  if [ "$built" != "$served" ]; then
+    fail=1
+    warn "the site is serving a different build than dist/ holds — the build did not reach the web root, so this deploy is NOT live"
+  else
+    # A 200 settles nothing here either: the fallback serves index.html for a
+    # missing asset, so only the content type tells a bundle from the page.
+    ctype="$(curl -s -o /dev/null -w '%{content_type}' --max-time 10 "https://$FQDN$built" || true)"
+    case "$ctype" in
+      *javascript*|*ecmascript*) ;;
+      *) fail=1; warn "$built is served as '${ctype:-unknown}', not JavaScript — nginx fell back to index.html, so the bundle is missing from the web root";;
+    esac
+  fi
+  return "$fail"
+}
+
 probe() {
-  # Three probes because three things can be broken independently: the API
-  # process, nginx's /api/ proxy, and nginx's static root. Local /api/health
-  # failing points at the app; local OK but public /api/ failing points at the
-  # proxy; public / failing points at the static root or the vhost itself.
+  # Four probes because four things can be broken independently: the API
+  # process, nginx's /api/ proxy, nginx's static root, and which build that
+  # root actually holds. Local /api/health failing points at the app; local OK
+  # but public /api/ failing points at the proxy; public / failing points at
+  # the static root or the vhost itself; a bundle mismatch points at the build
+  # or the sync, with everything else healthy and serving the last release.
   # The two API probes require the JSON body, not just a 200. Returns nonzero
   # if any probe fails, so deploy/restart can fail instead of printing a
   # broken rollout and exiting 0.
@@ -242,6 +281,9 @@ probe() {
   [ "$lfam" = "v6-only" ] && warn "$APP is bound to ::1 only. The vhost must proxy to 'localhost' for this to work; the current server binds 127.0.0.1, so a deploy fixes it — then pin proxy_pass to 127.0.0.1:$CLI_PORT."
   [ "$pk" = "ok" ] || { fail=1; warn "public API probe failed: nginx is not proxying /api/ to the API (missing/misrouted /api/ location, or DNS/TLS for $FQDN is off)"; }
   [ "$s" = "200" ] || { fail=1; warn "public site probe failed: nginx is not serving dist/ for $FQDN"; }
+  # Only worth asking once the site answers at all; otherwise it just restates
+  # the failure above.
+  if [ "$s" = "200" ]; then bundle_probe || fail=1; fi
   return "$fail"
 }
 

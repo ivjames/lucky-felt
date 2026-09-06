@@ -235,26 +235,41 @@ bundle_ref() { grep -oE '/assets/[A-Za-z0-9._-]+\.js' | head -1 || true; }
 # The site probe below asserts a 200 and nothing else, and this vhost answers
 # `try_files $uri $uri/ /index.html` — so a stale site serving the previous
 # release returns 200, and so does a request for a bundle that is not there at
-# all, because nginx hands back index.html instead. A deploy whose build never
-# reached the web root therefore passed its own health check and reported a
-# good rollout. These two questions are what "deployed" actually means.
+# all, because nginx hands back index.html instead. A deploy whose build did
+# not land therefore passed its own health check and reported a good rollout.
+# These two questions are what "deployed" actually means.
+#
+# nginx roots at this checkout's own dist/, so a mismatch is never a missing
+# copy step — there isn't one for the frontend. It means the build did not
+# finish rewriting dist/, the vhost root has drifted, or something in front is
+# caching. The messages below say so rather than inventing a copy.
 bundle_probe() {
-  local built served ctype fail=0
+  local built served page ctype fail=0
   [ -f "$ROOT/dist/index.html" ] || { warn "no dist/index.html to compare against; skipping the bundle check"; return 0; }
   built="$(bundle_ref <"$ROOT/dist/index.html")"
-  served="$(curl -s --max-time 10 "https://$FQDN/" | bundle_ref || true)"
-  printf 'bundle:     dist/ has %s, site serves %s\n' "${built:-(none found)}" "${served:-(none found)}"
   [ -n "$built" ] || { warn "no script reference in dist/index.html; skipping the bundle check"; return 0; }
+  # A transport failure means the question could not be asked, which is not the
+  # same as a bad answer. Reporting a timed-out curl as a stale build would
+  # fail a perfectly good deploy, so these two skip rather than accuse.
+  if ! page="$(curl -s --max-time 10 "https://$FQDN/")"; then
+    warn "could not fetch https://$FQDN/ for the bundle check; skipping it"
+    return 0
+  fi
+  served="$(printf '%s' "$page" | bundle_ref)"
+  printf 'bundle:     dist/ has %s, site serves %s\n' "$built" "${served:-(none found)}"
   if [ "$built" != "$served" ]; then
     fail=1
-    warn "the site is serving a different build than dist/ holds — the build did not reach the web root, so this deploy is NOT live"
+    warn "the site is not serving the build in $ROOT/dist — nginx roots at that same directory, so the build did not finish rewriting it, the vhost root has drifted, or something in front is caching. This deploy is NOT live."
   else
     # A 200 settles nothing here either: the fallback serves index.html for a
     # missing asset, so only the content type tells a bundle from the page.
-    ctype="$(curl -s -o /dev/null -w '%{content_type}' --max-time 10 "https://$FQDN$built" || true)"
+    if ! ctype="$(curl -s -o /dev/null -w '%{content_type}' --max-time 10 "https://$FQDN$built")"; then
+      warn "could not fetch $built for the bundle check; skipping the content-type check"
+      return 0
+    fi
     case "$ctype" in
       *javascript*|*ecmascript*) ;;
-      *) fail=1; warn "$built is served as '${ctype:-unknown}', not JavaScript — nginx fell back to index.html, so the bundle is missing from the web root";;
+      *) fail=1; warn "$built is served as '${ctype:-unknown}', not JavaScript — nginx fell back to index.html, so $ROOT/dist$built is not there (an interrupted build, or a vhost root pointing elsewhere)";;
     esac
   fi
   return "$fail"

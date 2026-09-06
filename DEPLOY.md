@@ -81,10 +81,15 @@ What `deploy` does, in order:
    200 with the SPA's `index.html`. The bundle probe exists for the same
    reason on the static side: `try_files $uri $uri/ /index.html` means a site
    still serving the previous release answers 200, and so does a request for a
-   bundle that was never copied, since nginx hands back `index.html` instead.
+   bundle that is not on disk, since nginx hands back `index.html` instead.
    So it compares the asset the live `index.html` references against the one
    in `dist/`, and checks that asset comes back as JavaScript rather than the
-   fallback page. **Any failed probe makes `deploy` (and `restart`) exit
+   fallback page. nginx roots at that same `dist/` (there is no copy step for
+   the frontend — see the table above), so a mismatch means the build did not
+   finish rewriting it, the vhost `root` has drifted, or something in front is
+   caching. A `curl` that cannot reach the site at all skips the check instead
+   of reporting a stale build, so a network blip does not fail a good deploy.
+   **Any failed probe makes `deploy` (and `restart`) exit
    nonzero** with a line saying which of the four failed, so a broken rollout
    can't pass as a success to an operator or a script. `status` reports the
    same probes without failing.

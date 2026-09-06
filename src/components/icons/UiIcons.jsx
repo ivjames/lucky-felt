@@ -85,3 +85,64 @@ export function AlertIcon({ className }) {
     </Icon>
   );
 }
+
+/* A speaker with two arcs of sound. */
+export function SoundOnIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <path
+        d="M4 9.4h3.3L12 5.4v13.2l-4.7-4H4V9.4Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M15.4 9.2a4 4 0 0 1 0 5.6m2.6-8.2a7.7 7.7 0 0 1 0 10.8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </Icon>
+  );
+}
+
+/* The same speaker, arcs struck out. */
+export function SoundOffIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <path
+        d="M4 9.4h3.3L12 5.4v13.2l-4.7-4H4V9.4Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="m15.6 9.8 4.8 4.4m0-4.4-4.8 4.4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+      />
+    </Icon>
+  );
+}
+
+/* Beamed quavers — marks the soundtrack credits, never a control on its own. */
+export function MusicIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <path
+        d="M9.4 17.2V5.6l9.2-1.8v11.4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <circle cx="7.2" cy="17.4" r="2.3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="16.4" cy="15.4" r="2.3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+    </Icon>
+  );
+}

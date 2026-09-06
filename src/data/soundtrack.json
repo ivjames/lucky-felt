@@ -1,0 +1,260 @@
+{
+  "artist": {
+    "name": "Kevin MacLeod",
+    "url": "https://incompetech.com"
+  },
+  "licence": {
+    "name": "Creative Commons: By Attribution 4.0",
+    "url": "https://creativecommons.org/licenses/by/4.0/"
+  },
+  "loudness": {
+    "target": -16,
+    "truePeak": -1.5,
+    "unit": "LUFS"
+  },
+  "tracks": [
+    {
+      "id": "usuan1100339",
+      "title": "Acid Trumpet",
+      "file": "acid-trumpet.m4a",
+      "duration": 208,
+      "bytes": 2558104,
+      "isrc": "USUAN1100339",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/AcidJazz.mp3"
+    },
+    {
+      "id": "usuan1100806",
+      "title": "Airport Lounge",
+      "file": "airport-lounge.m4a",
+      "duration": 308,
+      "bytes": 3776193,
+      "isrc": "USUAN1100806",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Airport%20Lounge.mp3"
+    },
+    {
+      "id": "usuan1700070",
+      "title": "Apero Hour",
+      "file": "apero-hour.m4a",
+      "duration": 283,
+      "bytes": 3455519,
+      "isrc": "USUAN1700070",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Apero%20Hour.mp3"
+    },
+    {
+      "id": "usuan1100323",
+      "title": "As I Figure",
+      "file": "as-i-figure.m4a",
+      "duration": 217,
+      "bytes": 2657954,
+      "isrc": "USUAN1100323",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/As%20I%20Figure.mp3"
+    },
+    {
+      "id": "usuan1700068",
+      "title": "Backbay Lounge",
+      "file": "backbay-lounge.m4a",
+      "duration": 267,
+      "bytes": 3249876,
+      "isrc": "USUAN1700068",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Backbay%20Lounge.mp3"
+    },
+    {
+      "id": "usuan1100479",
+      "title": "Backed Vibes (clean)",
+      "file": "backed-vibes-clean.m4a",
+      "duration": 228,
+      "bytes": 2764242,
+      "isrc": "USUAN1100479",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Backed%20Vibes%20Clean.mp3"
+    },
+    {
+      "id": "usuan1200071",
+      "title": "Bass Walker",
+      "file": "bass-walker.m4a",
+      "duration": 162,
+      "bytes": 1984486,
+      "isrc": "USUAN1200071",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Bass%20Walker.mp3"
+    },
+    {
+      "id": "usuan1700069",
+      "title": "Bossa Antigua",
+      "file": "bossa-antigua.m4a",
+      "duration": 283,
+      "bytes": 3478210,
+      "isrc": "USUAN1700069",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Bossa%20Antigua.mp3"
+    },
+    {
+      "id": "usuan1600033",
+      "title": "Deadly Roulette",
+      "file": "deadly-roulette.m4a",
+      "duration": 159,
+      "bytes": 1900304,
+      "isrc": "USUAN1600033",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Deadly%20Roulette.mp3"
+    },
+    {
+      "id": "usuan1700075",
+      "title": "Deuces",
+      "file": "deuces.m4a",
+      "duration": 191,
+      "bytes": 2303502,
+      "isrc": "USUAN1700075",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Deuces.mp3"
+    },
+    {
+      "id": "usuan1100590",
+      "title": "Fast Talkin",
+      "file": "fast-talkin.m4a",
+      "duration": 59,
+      "bytes": 726625,
+      "isrc": "USUAN1100590",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Fast%20Talkin.mp3"
+    },
+    {
+      "id": "usuan1100794",
+      "title": "Faster Does It",
+      "file": "faster-does-it.m4a",
+      "duration": 182,
+      "bytes": 2233075,
+      "isrc": "USUAN1100794",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Faster%20Does%20It.mp3"
+    },
+    {
+      "id": "usuan1300035",
+      "title": "George Street Shuffle",
+      "file": "george-street-shuffle.m4a",
+      "duration": 268,
+      "bytes": 3290437,
+      "isrc": "USUAN1300035",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/George%20Street%20Shuffle.mp3"
+    },
+    {
+      "id": "usuan1700076",
+      "title": "Hard Boiled",
+      "file": "hard-boiled.m4a",
+      "duration": 181,
+      "bytes": 2220850,
+      "isrc": "USUAN1700076",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Hard%20Boiled.mp3"
+    },
+    {
+      "id": "usuan1500022",
+      "title": "Hep Cats",
+      "file": "hep-cats.m4a",
+      "duration": 251,
+      "bytes": 3070244,
+      "isrc": "USUAN1500022",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Hep%20Cats.mp3"
+    },
+    {
+      "id": "usuan1600054",
+      "title": "Lobby Time",
+      "file": "lobby-time.m4a",
+      "duration": 193,
+      "bytes": 2344947,
+      "isrc": "USUAN1600054",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Lobby%20Time.mp3"
+    },
+    {
+      "id": "usuan1100174",
+      "title": "Long Stroll",
+      "file": "long-stroll.m4a",
+      "duration": 255,
+      "bytes": 3118235,
+      "isrc": "USUAN1100174",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Long%20Stroll.mp3"
+    },
+    {
+      "id": "usuan1200089",
+      "title": "Mining by Moonlight",
+      "file": "mining-by-moonlight.m4a",
+      "duration": 204,
+      "bytes": 2510457,
+      "isrc": "USUAN1200089",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Mining%20by%20Moonlight.mp3"
+    },
+    {
+      "id": "usuan1100131",
+      "title": "No Good Layabout",
+      "file": "no-good-layabout.m4a",
+      "duration": 186,
+      "bytes": 2269027,
+      "isrc": "USUAN1100131",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/NoGoodLayabout.mp3"
+    },
+    {
+      "id": "usuan2000019",
+      "title": "On Hold for You",
+      "file": "on-hold-for-you.m4a",
+      "duration": 218,
+      "bytes": 3637668,
+      "isrc": "USUAN2000019",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/On%20Hold%20for%20You.mp3"
+    },
+    {
+      "id": "usuan1700014",
+      "title": "Poppers and Prosecco",
+      "file": "poppers-and-prosecco.m4a",
+      "duration": 194,
+      "bytes": 2365625,
+      "isrc": "USUAN1700014",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Poppers%20and%20Prosecco.mp3"
+    },
+    {
+      "id": "usuan1400029",
+      "title": "Rollin at 5",
+      "file": "rollin-at-5.m4a",
+      "duration": 131,
+      "bytes": 1595262,
+      "isrc": "USUAN1400029",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Rollin%20at%205.mp3"
+    },
+    {
+      "id": "usuan1700071",
+      "title": "Samba Isobel",
+      "file": "samba-isobel.m4a",
+      "duration": 250,
+      "bytes": 3081115,
+      "isrc": "USUAN1700071",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Samba%20Isobel.mp3"
+    },
+    {
+      "id": "usuan1100080",
+      "title": "Shades of Spring",
+      "file": "shades-of-spring.m4a",
+      "duration": 187,
+      "bytes": 2293389,
+      "isrc": "USUAN1100080",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Shades%20of%20Spring.mp3"
+    },
+    {
+      "id": "usuan1200103",
+      "title": "Sidewalk Shade",
+      "file": "sidewalk-shade.m4a",
+      "duration": 158,
+      "bytes": 1928917,
+      "isrc": "USUAN1200103",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Sidewalk%20Shade.mp3"
+    },
+    {
+      "id": "usuan1500058",
+      "title": "Spy Glass",
+      "file": "spy-glass.m4a",
+      "duration": 227,
+      "bytes": 2781721,
+      "isrc": "USUAN1500058",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Spy%20Glass.mp3"
+    },
+    {
+      "id": "usuan2300005",
+      "title": "Vibing Over Venus",
+      "file": "vibing-over-venus.m4a",
+      "duration": 411,
+      "bytes": 6755194,
+      "isrc": "USUAN2300005",
+      "source": "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Vibing%20Over%20Venus.mp3"
+    }
+  ]
+}

@@ -36,6 +36,10 @@
   min-height: 22px;
 }
 
+/* Always present, always one row: the surface must not grow a line the first
+   time a spin is recorded, nor another as the row fills up. Every place is
+   drawn from the start (see HISTORY_SEATS in RouletteGame.jsx) and the row
+   never wraps. */
 .lf-roulette__history {
   width: 100%;
   margin-top: 22px;
@@ -46,6 +50,14 @@
   transform: translateZ(3px);
 }
 
+/* A place a result will go. Same size as a pip, so the row is the same height
+   before the first spin as after the fourteenth. */
+.lf-roulette__pip--empty {
+  background: rgba(0, 0, 0, 0.16);
+  border-style: dashed;
+  border-color: rgba(143, 209, 165, 0.24);
+}
+
 .lf-roulette__history-title {
   margin-bottom: 10px;
 }
@@ -53,7 +65,8 @@
 .lf-roulette__pips {
   display: flex;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  justify-content: center;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -62,6 +75,7 @@
 .lf-roulette__pip {
   width: 30px;
   height: 30px;
+  flex: none;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;

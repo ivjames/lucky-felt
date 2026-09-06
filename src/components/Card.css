@@ -1,8 +1,12 @@
+/* Every measurement on a card is a fraction of `--lf-card-w` (declared in
+   index.css, overridable on whatever row holds the cards), so a table that has
+   to shrink its cards to fit still gets a card and not a squashed one. The
+   ratio is the 5:7 of a real playing card. */
 .lf-card {
   position: relative;
-  width: 60px;
-  height: 84px;
-  border-radius: 7px;
+  width: var(--lf-card-w);
+  height: calc(var(--lf-card-w) * 1.4);
+  border-radius: calc(var(--lf-card-w) * 0.117);
   flex: none;
   /* Its own perspective, so a card turns over convincingly whether it sits on
      a pitched felt or flat in a panel. */
@@ -13,8 +17,7 @@
 }
 
 .lf-card--small {
-  width: 44px;
-  height: 62px;
+  --lf-card-w: 44px;
 }
 
 /* ---- The flipper: two faces back to back ---- */
@@ -47,9 +50,8 @@
 .lf-card__side--front {
   background: linear-gradient(160deg, #ffffff 0%, var(--lf-paper) 45%, var(--lf-paper-edge) 100%);
   border: 1px solid var(--lf-paper-edge);
-  border-radius: 7px;
   display: block;
-  padding: 5px 6px;
+  padding: calc(var(--lf-card-w) * 0.083) calc(var(--lf-card-w) * 0.1);
 }
 
 .lf-card--red {
@@ -70,55 +72,40 @@
 }
 
 .lf-card__index--tl {
-  top: 5px;
-  left: 6px;
+  top: calc(var(--lf-card-w) * 0.083);
+  left: calc(var(--lf-card-w) * 0.1);
 }
 
 .lf-card__index--br {
-  bottom: 5px;
-  right: 6px;
+  bottom: calc(var(--lf-card-w) * 0.083);
+  right: calc(var(--lf-card-w) * 0.1);
   transform: rotate(180deg);
 }
 
 .lf-card__rank {
-  font-size: 15px;
+  font-size: calc(var(--lf-card-w) * 0.25);
   font-weight: 800;
   letter-spacing: -0.02em;
 }
 
-.lf-card--small .lf-card__rank {
-  font-size: 12px;
-}
-
 .lf-card__mini {
-  width: 9px;
-  height: 9px;
-}
-
-.lf-card--small .lf-card__mini {
-  width: 7px;
-  height: 7px;
+  width: calc(var(--lf-card-w) * 0.15);
+  height: calc(var(--lf-card-w) * 0.15);
 }
 
 .lf-card__pip {
   position: absolute;
-  width: 30px;
-  height: 30px;
+  width: calc(var(--lf-card-w) * 0.5);
+  height: calc(var(--lf-card-w) * 0.5);
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   opacity: 0.95;
 }
 
-.lf-card--small .lf-card__pip {
-  width: 21px;
-  height: 21px;
-}
-
 /* ---- Face-down: house back ---- */
 .lf-card__side--back {
   border: 1px solid var(--lf-gold-soft);
-  border-radius: 7px;
   overflow: hidden;
   background: var(--lf-surface-4);
   transform: rotateY(180deg);
@@ -129,34 +116,18 @@
   height: 100%;
 }
 
+/* ---- An empty place at the table ----------------------------------------
+   A seat a card will land in. Drawn whether or not there is a card there yet,
+   which is what keeps the felt the same size from the deal to the showdown. */
+.lf-cardslot {
+  border-radius: calc(var(--lf-card-w) * 0.117);
+  border: 1px dashed rgba(143, 209, 165, 0.28);
+  background: rgba(0, 0, 0, 0.14);
+  box-shadow: none;
+}
+
 /* ---- The throw from the deck ---- */
 .lf-card--deal {
   animation: lf-deal-in 0.46s cubic-bezier(0.22, 0.85, 0.3, 1) both;
   animation-delay: calc(var(--lf-deal-i, 0) * 95ms);
-}
-
-@media (max-width: 560px) {
-  .lf-card {
-    width: 50px;
-    height: 70px;
-  }
-
-  .lf-card__rank {
-    font-size: 13px;
-  }
-
-  .lf-card__pip {
-    width: 25px;
-    height: 25px;
-  }
-
-  .lf-card__index--tl {
-    top: 4px;
-    left: 4px;
-  }
-
-  .lf-card__index--br {
-    bottom: 4px;
-    right: 4px;
-  }
 }

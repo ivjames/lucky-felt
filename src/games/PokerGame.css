@@ -1,5 +1,10 @@
-/* The felt table reads better tight than stretched across a wide panel. */
+/* The felt table reads better tight than stretched across a wide panel.
+   `width: 100%` is load-bearing: this section is a grid item, and an item with
+   auto inline margins is sized to its contents rather than stretched — which
+   made the whole table grow a card's width every time the board gained one.
+   A definite width takes that decision away from the cards. */
 .lf-poker {
+  width: 100%;
   max-width: 720px;
   margin-inline: auto;
 }
@@ -70,13 +75,17 @@
   color: var(--lf-text-dim);
 }
 
+/* Every row is as tall as a card and never wraps, so its height is the same
+   whether it is holding nothing or a full five-card board. The cards shrink to
+   fit rather than the row growing to hold them — see the size rule below. */
 .lf-poker__cards {
-  min-height: 88px;
+  --lf-card-gap: 7px;
+  min-height: calc(var(--lf-card-w) * 1.4 + 4px);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
-  gap: 7px;
+  flex-wrap: nowrap;
+  gap: var(--lf-card-gap);
   transform-style: preserve-3d;
 }
 
@@ -106,11 +115,6 @@
   --lf-deal-rot: 28deg;
 }
 
-.lf-poker__placeholder {
-  color: var(--lf-text-faint);
-  font-size: 13px;
-}
-
 .lf-poker__controls {
   margin-top: 18px;
 }
@@ -128,6 +132,19 @@
 
 .lf-poker__replay {
   margin-top: 16px;
+}
+
+/* Below this the felt is narrower than five 60px cards laid side by side, so
+   the cards come down with it. The board is the widest row and sets the size
+   for every row, which is why this is on `.lf-poker__cards` and not on the
+   board alone: a dealt card should not be a different size from a hole card.
+   The exact figure is tuned so five cards plus their gaps always fit — if the
+   felt's padding changes, re-check it. */
+@media (max-width: 640px) {
+  .lf-poker__cards {
+    --lf-card-w: clamp(32px, 9.4vw, 60px);
+    --lf-card-gap: 5px;
+  }
 }
 
 @media (max-width: 560px) {
@@ -152,14 +169,6 @@
   .lf-poker__row {
     grid-template-columns: 1fr;
     gap: 6px;
-  }
-
-  .lf-poker__cards {
-    justify-content: flex-start;
-  }
-
-  .lf-poker__cards {
-    min-height: 66px;
   }
 
   /* Shorter throws so a card never starts outside the viewport. */

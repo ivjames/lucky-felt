@@ -1,7 +1,7 @@
 # Lucky Felt Casino — working notes
 
-A play-money browser casino: Texas Hold'em, roulette, craps, sic bo, and three
-slot machines. React + Vite frontend, Express + SQLite API. No real money.
+A play-money browser casino: Texas Hold'em, blackjack, roulette, craps, sic bo,
+and three slot machines. React + Vite frontend, Express + SQLite API. No real money.
 
 Served at **https://casino.lab980.com** from the lab980 droplet.
 
@@ -56,8 +56,8 @@ Full runbook, `.env` keys, bring-up, and the vhost: `DEPLOY.md`.
 - **Symbols and suits are identifiers**, not glyphs. The server sends
   `"cherry"`, `"spades"`; the client maps them to SVG in
   `src/components/icons/`. No emoji anywhere in `src/` or `server/`.
-- **In-progress poker and craps hands persist** in the `game_state` table, so a
-  restart mid-hand doesn't forfeit a debited stake. Balance and state changes
+- **In-progress poker, blackjack and craps hands persist** in the `game_state`
+  table, so a restart mid-hand doesn't forfeit a debited stake. Balance and state changes
   that must land together are wrapped in `db.transaction`.
 - **Sign-in is an emailed one-time code** via SMTP (Resend in production).
   `AUTH_SHOW_CODE=1` shows the code on the page while email delivery is
@@ -76,6 +76,20 @@ Full runbook, `.env` keys, bring-up, and the vhost: `DEPLOY.md`.
   jumps over the last, encodes 96 kbps AAC, and rewrites the manifest. The
   187 MB of masters live in the gitignored `audio-src/`; `--fetch` re-downloads
   them.
+
+- **A playfield must not resize to what is on it.** A felt that grows a card's
+  width when the flop lands, or a line taller when the roulette history fills,
+  makes everything below it jump. Two things cause it and both have bitten:
+  a play surface that is a grid item with `margin-inline: auto` is sized to its
+  contents rather than stretched (give it `width: 100%`), and `.lf-game`'s
+  columns are `minmax(0, 1fr)` rather than the implicit `auto` because an auto
+  track is sized by its content, so a row that doesn't wrap widens the column
+  and the felt with it. Card rows reserve every place they can use — five on
+  the poker board — and card size comes from `--lf-card-w`, which every other
+  measurement on a card is derived from, so a table can shrink its cards to fit
+  a phone rather than wrapping them onto a second line. If you change a felt's
+  padding, re-derive the card-size slopes in its stylesheet; the comments say
+  which figure is which.
 
 - **Two package.json files.** Root is the Vite frontend; `server/package.json`
   is the API. `npm run lint` at the root covers both.

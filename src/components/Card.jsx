@@ -77,3 +77,15 @@ export default function Card({ card, hidden = false, small = false, dealIndex = 
     </div>
   );
 }
+
+/**
+ * An empty place at the table — the outline of a card that hasn't been dealt
+ * yet. Every seat a hand can use is drawn from the first render, so the felt
+ * is the same size in the betting phase as it is at the showdown; without it
+ * the table grows a card at a time as the hand plays out.
+ *
+ * Decorative: the row around it carries the label a screen reader needs.
+ */
+export function CardSlot({ small = false }) {
+  return <div className={`lf-card lf-cardslot${small ? " lf-card--small" : ""}`} aria-hidden="true" />;
+}

@@ -6,6 +6,7 @@ export const ATM_COOLDOWN_MS = 5 * 60 * 1000;
 // `id` also selects the game's SVG mark — see components/icons/GameIcon.jsx.
 export const GAMES = [
   { id: "poker", name: "Texas Hold'em", desc: "Five-card community poker against the dealer" },
+  { id: "blackjack", name: "Blackjack", desc: "Beat the dealer to 21 — naturals pay 3:2" },
   { id: "roulette", name: "Roulette", desc: "European single-zero wheel" },
   { id: "craps", name: "Craps", desc: "The pass / don't pass dice classic" },
   { id: "sicbo", name: "Sic Bo", desc: "Three dice, a board full of bets" },

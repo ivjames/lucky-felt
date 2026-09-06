@@ -89,6 +89,68 @@ export function compareTB(a, b) {
   return 0;
 }
 
+// ---- Blackjack -----------------------------------------------------------
+// One shuffled 52-card deck per hand, the same as poker. A real shoe exists to
+// make counting hard across hands; here the deck is thrown away and reshuffled
+// at every deal, so a shoe would only make the state 300 cards bigger for no
+// change in what a player can know.
+//
+// House rules, all decided here and nowhere else: dealer stands on every 17
+// including a soft one, a natural pays 3:2, doubling is allowed on the first
+// two cards only, and there is no split and no insurance.
+export const BLACKJACK_RULES = {
+  dealerStandsOn: 17,
+  blackjackPays: 1.5,
+  doubleAllowed: true,
+  splitAllowed: false,
+  insuranceOffered: false,
+};
+
+const BJ_TENS = new Set(["10", "J", "Q", "K"]);
+
+/** A hand's total, counting each ace as 11 for as long as that doesn't bust it.
+ *  `soft` is true while an ace is still being counted high — which is what makes
+ *  a soft 17 different from a hard one. */
+export function handTotal(cards) {
+  let total = 0;
+  let aces = 0;
+  for (const c of cards) {
+    if (c.r === "A") { aces++; total += 11; }
+    else if (BJ_TENS.has(c.r)) total += 10;
+    else total += Number(c.r);
+  }
+  while (total > 21 && aces > 0) { total -= 10; aces--; }
+  return { total, soft: aces > 0 };
+}
+
+/** A natural: 21 on the first two cards. A 21 reached by hitting is not one,
+ *  and doesn't get the 3:2. */
+export function isBlackjack(cards) {
+  return cards.length === 2 && handTotal(cards).total === 21;
+}
+
+/** The dealer's turn: draw until 17, then stop. Returns a new hand; the deck is
+ *  consumed from the front, mirroring how the deal takes cards. */
+export function dealerDraw(deck, dealer) {
+  const hand = [...dealer];
+  while (handTotal(hand).total < BLACKJACK_RULES.dealerStandsOn) hand.push(deck.shift());
+  return hand;
+}
+
+/** Settles a finished hand. `stake` is everything the player has put up (twice
+ *  the original bet after a double). `returned` is what goes back to the
+ *  balance, so a push returns the stake and a loss returns nothing.
+ *  Naturals are settled at the deal and pay 3:2 — see the route. */
+export function settleBlackjack(player, dealer, stake) {
+  const p = handTotal(player).total;
+  const d = handTotal(dealer).total;
+  if (p > 21) return { outcome: "lose", returned: 0, label: "Bust — you lose" };
+  if (d > 21) return { outcome: "win", returned: stake * 2, label: "Dealer busts — you win!" };
+  if (p > d) return { outcome: "win", returned: stake * 2, label: "You win!" };
+  if (p < d) return { outcome: "lose", returned: 0, label: "Dealer wins" };
+  return { outcome: "push", returned: stake, label: "Push — same total" };
+}
+
 // ---- Slots ---------------------------------------------------------------
 // Reels and payout rules live here, server-side, as the single source of truth.
 // Symbols are plain string ids; the client maps each id to an SVG symbol and a
@@ -309,6 +371,7 @@ export function publicConfig() {
     ),
     roulette: ROULETTE_BETS.map(({ id, label, payout }) => ({ id, label, payout })),
     sicbo: SIC_BO_BETS.map(({ id, label, payout }) => ({ id, label, payout })),
+    blackjack: BLACKJACK_RULES,
     redNums: RED_NUMS,
   };
 }

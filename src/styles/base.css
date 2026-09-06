@@ -426,9 +426,15 @@
 /* ---- Game layout --------------------------------------------------------
    Stage on top, controls below. On wide screens a `--split` game puts the
    controls beside the stage. */
+/* `minmax(0, 1fr)` rather than the implicit `auto` track: an auto track is
+   sized to its contents, so anything a game lays out in a row that doesn't wrap
+   — a five-card board, a long blackjack hand — would widen the column and with
+   it the whole felt. A play surface must be the same size whatever is on it, so
+   the track is told its floor is zero and the content fits the column. */
 .lf-game {
   padding-top: 22px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -452,7 +458,7 @@
 
 @media (min-width: 900px) {
   .lf-game--split {
-    grid-template-columns: minmax(300px, 400px) 1fr;
+    grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
   }
 }
 

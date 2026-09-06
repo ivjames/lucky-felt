@@ -67,6 +67,13 @@ export function betRoulette(bets) { return req("/bet/roulette", { method: "POST"
 export function betSicbo(bets) { return req("/bet/sicbo", { method: "POST", body: { bets } }); }
 export function crapsRoll(bet, type) { return req("/bet/craps", { method: "POST", body: { bet, type } }); }
 
+// ---- Blackjack (stateful) ----
+export function blackjackState() { return req("/blackjack/state"); }
+export function blackjackDeal(bet) { return req("/blackjack/deal", { method: "POST", body: { bet } }); }
+export function blackjackHit() { return req("/blackjack/hit", { method: "POST" }); }
+export function blackjackStand() { return req("/blackjack/stand", { method: "POST" }); }
+export function blackjackDouble() { return req("/blackjack/double", { method: "POST" }); }
+
 // ---- Poker (stateful) ----
 export function pokerState() { return req("/poker/state"); }
 export function pokerDeal(bet) { return req("/poker/deal", { method: "POST", body: { bet } }); }

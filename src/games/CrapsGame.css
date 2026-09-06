@@ -34,10 +34,13 @@
   line-height: 1.1;
 }
 
+/* Two lines' worth of room whatever it currently says, so the panel doesn't
+   jump between "Seven out — you lose" and the longer point messages. */
 .lf-craps__msg {
   color: var(--lf-text-dim);
   font-size: 14px;
   line-height: 1.5;
+  min-height: 42px;
   margin: 16px 0 0;
   text-align: center;
 }

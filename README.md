@@ -1,6 +1,6 @@
 # Lucky Felt Casino
 
-A friendly browser casino. Texas Hold'em, Roulette, Craps, Sic Bo, and three slot machines. Email-based passwordless accounts.
+A friendly browser casino. Texas Hold'em, Blackjack, Roulette, Craps, Sic Bo, and three slot machines. Email-based passwordless accounts.
 
 Outcomes and balances are **server-authoritative**: the React client sends *actions* (which game, how much, which bets) and the Express/SQLite backend in [`server/`](server/) owns the RNG, the payout tables, and the money. See [Security model](#security-model) below.
 
@@ -32,8 +32,8 @@ The browser is treated as untrusted. It never computes an outcome or writes a ba
 - **Every bet is validated** server-side: positive integer, within table limits, `<= balance`. Bad bets are rejected.
 - **The ATM cooldown is enforced server-side** (`POST /api/atm` returns `429` while on cooldown).
 - **Sign-in proves inbox ownership.** A one-time 6-digit code is emailed; only verifying it mints a session token. Codes are stored hashed, expire in 10 minutes, are single-use, and are capped at 5 wrong attempts. Knowing an email is no longer enough to act as that user.
-- **Sessions use bearer tokens**, not raw email in the body. Sessions expire 30 days after sign-in. Dealer hole cards in poker stay on the server until showdown.
-- **In-progress hands are persistent.** Poker and craps hands are stored in a `game_state` table in SQLite, so a server restart does not forfeit a live stake.
+- **Sessions use bearer tokens**, not raw email in the body. Sessions expire 30 days after sign-in. Dealer hole cards — poker's until the showdown, blackjack's until the hand ends — stay on the server.
+- **In-progress hands are persistent.** Poker, blackjack and craps hands are stored in a `game_state` table in SQLite, so a server restart does not forfeit a live stake.
 - **Auth and bet endpoints are rate-limited** (`express-rate-limit`).
 
 ### Email (sign-in codes)
@@ -96,6 +96,8 @@ With nothing configured the code is logged to the backend console (dev fallback)
 | `POST /api/bet/craps` `{bet,type}` | token | one roll (stateful point) |
 | `GET /api/poker/state` | token | resume an in-progress hand (dealer hidden) |
 | `POST /api/poker/{deal,advance,showdown,fold}` | token | stateful hand; dealer hidden until showdown |
+| `GET /api/blackjack/state` | token | resume an in-progress hand (hole card hidden) |
+| `POST /api/blackjack/{deal,hit,stand,double}` | token | stateful hand; hole card hidden until it ends |
 
 ## Deploy
 

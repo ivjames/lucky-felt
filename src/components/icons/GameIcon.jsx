@@ -31,6 +31,25 @@ export function CardsIcon({ className }) {
   );
 }
 
+/* Blackjack — the dealer's hole card, face down behind an ace. Deliberately
+   not two paper cards: that is Hold'em's mark, and the covered card is what
+   this game is about. */
+export function AceIcon({ className }) {
+  return (
+    <Frame className={className}>
+      <g transform="rotate(-16 11 18)">
+        <rect x="3" y="7" width="13" height="18.5" rx="2.4" fill="var(--lf-pocket-green, #1a7a46)" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M5.4 12.4 13.6 20.6M5.4 20.6 13.6 12.4" stroke="currentColor" strokeWidth="1.1" opacity="0.7" />
+      </g>
+      <rect x="14.5" y="5.5" width="14" height="20" rx="2.6" fill={PAPER} stroke="currentColor" strokeWidth="1.5" />
+      <g fill={INK}>
+        <path d="M21.5 9.4 17.1 15h8.8l-4.4-5.6Z" />
+        <path d="M21.5 15.2c.4 3.1 1.1 5.3 2.4 7h-4.8c1.3-1.7 2-3.9 2.4-7Z" />
+      </g>
+    </Frame>
+  );
+}
+
 /* Roulette — a sectored wheel with a ball track pointer. */
 export function WheelIcon({ className }) {
   return (
@@ -168,6 +187,7 @@ export function StarIcon({ className }) {
 
 const BY_ID = {
   poker: CardsIcon,
+  blackjack: AceIcon,
   roulette: WheelIcon,
   craps: TwoDiceIcon,
   sicbo: ThreeDiceIcon,

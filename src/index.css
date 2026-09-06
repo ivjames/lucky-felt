@@ -69,6 +69,12 @@
   --lf-pitch-soft: 6deg;
   --lf-lift: 10px;
 
+  /* A playing card's width. Everything else about a card — its height, its
+     type, its pips — is derived from this, so a table can shrink its cards to
+     fit a narrow screen without any of them coming apart. Set it on the row
+     that holds the cards; the cards inherit it. */
+  --lf-card-w: 60px;
+
   /* Layout */
   --lf-container: 1040px;
   --lf-gap: 16px;

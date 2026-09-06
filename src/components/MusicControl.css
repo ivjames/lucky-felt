@@ -166,3 +166,14 @@
     transition: none;
   }
 }
+
+.lf-music__btn:disabled {
+  color: var(--lf-text-faint);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.lf-music__btn:disabled:hover {
+  color: var(--lf-text-faint);
+  background: none;
+}

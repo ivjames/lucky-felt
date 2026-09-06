@@ -12,7 +12,8 @@ import "./MusicControl.css";
  * track and it credits itself; remove the panel and the tracks are unlicensed.
  */
 export default function MusicControl() {
-  const { enabled, volume, playing, track, tracks, artist, licence, toggle, setVolume, skip } = useSoundtrack();
+  const { supported, enabled, volume, playing, track, tracks, artist, licence, toggle, setVolume, skip } =
+    useSoundtrack();
   const [open, setOpen] = useState(false);
   const panelRef = useRef(null);
   const toggleRef = useRef(null);
@@ -37,7 +38,16 @@ export default function MusicControl() {
     };
   }, [open]);
 
-  const Speaker = enabled ? SoundOnIcon : SoundOffIcon;
+  const Speaker = enabled && supported ? SoundOnIcon : SoundOffIcon;
+  /* The credits stay whatever the browser can decode — the tracks ship and are
+   * served either way, and the attribution is the condition on doing that. */
+  const state = !supported
+    ? "This browser can't play AAC audio"
+    : playing
+      ? "Now playing"
+      : enabled
+        ? "Paused"
+        : "Music off";
 
   return (
     <div className="lf-music">
@@ -46,10 +56,10 @@ export default function MusicControl() {
           <div className="lf-music__now">
             <MusicIcon className="lf-music__now-icon" />
             <div>
-              <p className="lf-music__now-title">{track.title}</p>
-              <p className="lf-music__now-state">{playing ? "Now playing" : enabled ? "Paused" : "Music off"}</p>
+              <p className="lf-music__now-title">{supported ? track.title : "Soundtrack unavailable"}</p>
+              <p className="lf-music__now-state">{state}</p>
             </div>
-            <button className="lf-btn lf-btn--ghost lf-btn--sm" onClick={skip} disabled={!enabled}>
+            <button className="lf-btn lf-btn--ghost lf-btn--sm" onClick={skip} disabled={!enabled || !supported}>
               Skip
             </button>
           </div>
@@ -63,7 +73,7 @@ export default function MusicControl() {
               step="0.05"
               value={volume}
               onChange={(e) => setVolume(Number(e.target.value))}
-              disabled={!enabled}
+              disabled={!enabled || !supported}
               aria-label={`Music volume, ${Math.round(volume * 100)} percent`}
             />
           </label>
@@ -96,8 +106,9 @@ export default function MusicControl() {
         <button
           className="lf-music__btn"
           onClick={toggle}
-          aria-label={enabled ? "Turn music off" : "Turn music on"}
-          aria-pressed={enabled}
+          disabled={!supported}
+          aria-label={supported ? (enabled ? "Turn music off" : "Turn music on") : "This browser can't play AAC audio"}
+          aria-pressed={supported && enabled}
         >
           <Speaker className="lf-music__btn-icon" />
         </button>

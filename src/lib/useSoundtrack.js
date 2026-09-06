@@ -39,6 +39,21 @@ function savePrefs(prefs) {
   }
 }
 
+/* Chromium builds without proprietary codecs — several Linux distro packages,
+ * ungoogled-chromium, and Playwright's bundled browser — have no AAC decoder.
+ * Every track then fails to demux, and since a failure skips to the next one,
+ * the whole soundtrack gets requested back to back before the give-up guard
+ * stops it. Ask once instead of finding out 27 times. */
+const AAC = 'audio/mp4; codecs="mp4a.40.2"';
+
+function canPlayAac() {
+  try {
+    return document.createElement("audio").canPlayType(AAC) !== "";
+  } catch {
+    return false;
+  }
+}
+
 /* Fisher-Yates. `avoid` is the index that just played, kept off the front so a
  * reshuffle can't repeat it back to back. */
 function shuffle(length, avoid) {
@@ -62,6 +77,8 @@ export function useSoundtrack() {
    * measured against an order that was then thrown away. */
   const [queue, setQueue] = useState(() => ({ order: shuffle(TRACKS.length), cursor: 0 }));
   const [playing, setPlaying] = useState(false);
+  /* Asked once: the answer cannot change while the page is open. */
+  const [supported] = useState(canPlayAac);
   const audioRef = useRef(null);
   /* What is actually loaded into the element, so the effect below can compare
    * identity rather than guessing from the URL. */
@@ -145,6 +162,9 @@ export function useSoundtrack() {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
+    /* Before the src is set, so an unplayable format costs nothing rather than
+     * 27 requests the browser cannot use. */
+    if (!supported) return;
     if (!prefs.enabled) {
       audio.pause();
       return;
@@ -158,7 +178,7 @@ export function useSoundtrack() {
       audio.load();
     }
     audio.play().catch(() => setPlaying(false));
-  }, [prefs.enabled, track.file]);
+  }, [prefs.enabled, supported, track.file]);
 
   /* Autoplay is blocked until the page has been interacted with, so every
    * gesture retries it. Deliberately not `{once: true}`: the first gesture is
@@ -166,7 +186,7 @@ export function useSoundtrack() {
    * rejected attempt left no way to ever start the music while the button
    * still claimed it was on. These come off when `playing` flips. */
   useEffect(() => {
-    if (!prefs.enabled || playing) return undefined;
+    if (!supported || !prefs.enabled || playing) return undefined;
     const retry = () => audioRef.current?.play().catch(() => {});
     window.addEventListener("pointerdown", retry);
     window.addEventListener("keydown", retry);
@@ -174,7 +194,7 @@ export function useSoundtrack() {
       window.removeEventListener("pointerdown", retry);
       window.removeEventListener("keydown", retry);
     };
-  }, [prefs.enabled, playing]);
+  }, [prefs.enabled, playing, supported]);
 
   const toggle = useCallback(() => {
     /* Turning the music back on is the player asking for another go, so the
@@ -186,6 +206,7 @@ export function useSoundtrack() {
   const setVolume = useCallback((volume) => setPrefs((p) => ({ ...p, volume: clamp(volume) })), []);
 
   return {
+    supported,
     enabled: prefs.enabled,
     volume: prefs.volume,
     playing,

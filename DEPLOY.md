@@ -75,13 +75,24 @@ What `deploy` does, in order:
    `pm2 start` if the process doesn't exist yet), `pm2 save`. Only now is the
    commit stamped into `/var/www/casino-api/.deployed-commit`, so a deploy
    that fails at `npm ci` leaves the stamp on the commit still running.
-6. Probes `/api/health` locally and publicly, and the public `/`. The two API
-   probes require the `{"ok":true}` body, not just a 200, because a vhost
-   with no `/api/` location would answer 200 with the SPA's `index.html`.
-   **Any failed probe makes `deploy` (and `restart`) exit nonzero** with a
-   line saying which of the three failed, so a broken rollout can't pass as
-   a success to an operator or a script. `status` reports the same probes
-   without failing.
+6. Probes `/api/health` locally and publicly, the public `/`, and which build
+   that `/` is actually serving. The two API probes require the `{"ok":true}`
+   body, not just a 200, because a vhost with no `/api/` location would answer
+   200 with the SPA's `index.html`. The bundle probe exists for the same
+   reason on the static side: `try_files $uri $uri/ /index.html` means a site
+   still serving the previous release answers 200, and so does a request for a
+   bundle that is not on disk, since nginx hands back `index.html` instead.
+   So it compares the asset the live `index.html` references against the one
+   in `dist/`, and checks that asset comes back as JavaScript rather than the
+   fallback page. nginx roots at that same `dist/` (there is no copy step for
+   the frontend — see the table above), so a mismatch means the build did not
+   finish rewriting it, the vhost `root` has drifted, or something in front is
+   caching. A `curl` that cannot reach the site at all skips the check instead
+   of reporting a stale build, so a network blip does not fail a good deploy.
+   **Any failed probe makes `deploy` (and `restart`) exit
+   nonzero** with a line saying which of the four failed, so a broken rollout
+   can't pass as a success to an operator or a script. `status` reports the
+   same probes without failing.
 
 **Never edit files in `/var/www/casino-api` by hand** except `.env`. It is a
 copy; the next deploy overwrites it from git.

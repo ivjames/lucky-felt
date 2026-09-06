@@ -19,6 +19,15 @@ export default defineConfig([
     },
   },
   {
+    // Build-time tooling: Node, not the browser.
+    files: ['scripts/**/*.mjs'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      globals: { ...globals.node },
+      sourceType: 'module',
+    },
+  },
+  {
     // Backend is a separate Node package with its own runtime globals.
     files: ['server/**/*.js'],
     extends: [js.configs.recommended],

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import * as api from "./api";
 import AtmModal from "./components/AtmModal";
+import MusicControl from "./components/MusicControl";
 import CrapsGame from "./games/CrapsGame";
 import PokerGame from "./games/PokerGame";
 import RouletteGame from "./games/RouletteGame";
@@ -123,6 +124,10 @@ export default function App() {
 
   return (
     <>
+      {/* Mounted here rather than inside a screen: the lobby and the games
+          unmount each other, and the soundtrack should not restart every time
+          someone leaves a table. */}
+      <MusicControl />
       {showAtm && user && (
         <AtmModal
           user={user}

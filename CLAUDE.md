@@ -64,6 +64,19 @@ Full runbook, `.env` keys, bring-up, and the vhost: `DEPLOY.md`.
   broken (temporary, no inbox verification). `AUTH_DEV_ECHO=1` returns the
   code in the API response for local dev only;
   the server refuses it when `NODE_ENV=production`.
+- **The soundtrack is licensed, not just bundled.** The 27 tracks in
+  `public/audio/` are Kevin MacLeod's, under CC BY 4.0 — a licence to
+  redistribute *provided* the attribution ships with them. The credits panel in
+  `src/components/MusicControl.jsx` is that attribution and it renders from
+  `src/data/soundtrack.json`, so a track cannot reach the player without its
+  credit line. Don't add audio by dropping a file in `public/audio/`: run
+  `node scripts/build-soundtrack.mjs`, which resolves titles against
+  Incompetech's own catalogue (the filenames disagree with the titles —
+  `AcidJazz.mp3` is *Acid Trumpet*), normalises every track to −16 LUFS so none
+  jumps over the last, encodes 96 kbps AAC, and rewrites the manifest. The
+  187 MB of masters live in the gitignored `audio-src/`; `--fetch` re-downloads
+  them.
+
 - **Two package.json files.** Root is the Vite frontend; `server/package.json`
   is the API. `npm run lint` at the root covers both.
 - **Local dev:** `cd server && AUTH_DEV_ECHO=1 npm run dev` on 3001, then

@@ -6,3 +6,6 @@ dist
 *.db
 *.db-shm
 *.db-wal
+
+# soundtrack masters, re-fetchable with scripts/build-soundtrack.mjs --fetch
+audio-src

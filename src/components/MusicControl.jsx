@@ -92,7 +92,12 @@ export default function MusicControl() {
           </p>
           <ol className="lf-music__list">
             {tracks.map((t) => (
-              <li key={t.id} className={t.id === track.id ? "lf-music__track lf-music__track--current" : "lf-music__track"}>
+              <li
+                key={t.id}
+                className={
+                  supported && t.id === track.id ? "lf-music__track lf-music__track--current" : "lf-music__track"
+                }
+              >
                 <a href={t.source} target="_blank" rel="noreferrer noopener">
                   {t.title}
                 </a>
@@ -103,10 +108,13 @@ export default function MusicControl() {
       )}
 
       <div className="lf-music__bar">
+        {/* aria-disabled rather than `disabled`: a disabled control dispatches
+            no pointer events, which would take this button out of the
+            click-away handler above and leave the credits panel stuck open. */}
         <button
           className="lf-music__btn"
-          onClick={toggle}
-          disabled={!supported}
+          onClick={() => supported && toggle()}
+          aria-disabled={!supported}
           aria-label={supported ? (enabled ? "Turn music off" : "Turn music on") : "This browser can't play AAC audio"}
           aria-pressed={supported && enabled}
         >

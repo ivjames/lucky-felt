@@ -485,11 +485,13 @@ function blackjackView(state, balance) {
     dealerTotal: handTotal([state.dealer[0]]).total,
     dealerHidden: true,
     bet: state.bet,
-    stake: state.doubled ? state.bet * 2 : state.bet,
-    doubled: state.doubled,
-    // Doubling costs the original bet a second time, so it needs the bankroll
-    // to cover it as well as being the player's first decision.
-    canDouble: BLACKJACK_RULES.doubleAllowed && !state.doubled && state.player.length === 2 && balance >= state.bet,
+    // A hand that is still live has never been doubled: doubling takes its one
+    // card and settles in the same request, so the stake here is always the
+    // original bet.
+    stake: state.bet,
+    // Doubling costs that bet a second time, so it needs the bankroll to cover
+    // it as well as being the player's first decision.
+    canDouble: BLACKJACK_RULES.doubleAllowed && state.player.length === 2 && balance >= state.bet,
     phase: "player",
     settled: false,
   };
@@ -522,7 +524,7 @@ api.post("/blackjack/deal", betLimiter, auth, (req, res) => {
   if (err) return res.status(400).json({ error: err });
 
   const d = shuffle(makeDeck());
-  const state = { deck: d.slice(4), player: [d[0], d[2]], dealer: [d[1], d[3]], bet, doubled: false };
+  const state = { deck: d.slice(4), player: [d[0], d[2]], dealer: [d[1], d[3]], bet };
   let balance = u.balance - bet;
 
   // A natural on either side ends the hand where it stands — nobody draws, and
@@ -532,11 +534,11 @@ api.post("/blackjack/deal", betLimiter, auth, (req, res) => {
   if (playerBJ || dealerBJ) {
     let returned, outcome, label;
     if (playerBJ && dealerBJ) { returned = bet; outcome = "push"; label = "Push — both blackjack"; }
-    else if (playerBJ) { returned = bet + bet * BLACKJACK_RULES.blackjackPays; outcome = "win"; label = "Blackjack! Pays 3:2"; }
+    else if (playerBJ) { returned = bet + bet * BLACKJACK_RULES.blackjackPays; outcome = "win"; label = `Blackjack! Pays ${BLACKJACK_RULES.blackjackPaysText}`; }
     else { returned = 0; outcome = "lose"; label = "Dealer has blackjack"; }
     balance += returned;
     q.setBalance.run(balance, u.email);
-    return res.json({ balance, blackjack: playerBJ, ...blackjackResult(state.player, state.dealer, bet, outcome, label, returned) });
+    return res.json({ balance, ...blackjackResult(state.player, state.dealer, bet, outcome, label, returned) });
   }
 
   db.transaction(() => {
@@ -557,7 +559,7 @@ api.post("/blackjack/hit", auth, (req, res) => {
   const state = getGameState(u.email, "blackjack");
   if (!state) return res.status(409).json({ error: "No hand in progress." });
   state.player.push(state.deck.shift());
-  const stake = state.doubled ? state.bet * 2 : state.bet;
+  const stake = state.bet;
 
   // Busting ends the hand immediately: the dealer never draws against a hand
   // that has already lost, though the hole card is turned over all the same.
@@ -574,7 +576,7 @@ api.post("/blackjack/stand", auth, (req, res) => {
   const u = req.user;
   const state = getGameState(u.email, "blackjack");
   if (!state) return res.status(409).json({ error: "No hand in progress." });
-  const stake = state.doubled ? state.bet * 2 : state.bet;
+  const stake = state.bet;
   const dealer = dealerDraw(state.deck, state.dealer);
   const s = settleBlackjack(state.player, dealer, stake);
   const balance = u.balance + s.returned;
@@ -589,12 +591,11 @@ api.post("/blackjack/double", betLimiter, auth, (req, res) => {
   const u = req.user;
   const state = getGameState(u.email, "blackjack");
   if (!state) return res.status(409).json({ error: "No hand in progress." });
-  if (state.doubled || state.player.length !== 2) return res.status(409).json({ error: "Doubling is only allowed on your first two cards." });
+  if (state.player.length !== 2) return res.status(409).json({ error: "Doubling is only allowed on your first two cards." });
   // The extra wager is the original bet again, which was already checked against
   // the table limit at the deal; all that's left to check is the bankroll.
   if (u.balance < state.bet) return res.status(400).json({ error: "Not enough balance to double." });
 
-  state.doubled = true;
   state.player.push(state.deck.shift());
   const stake = state.bet * 2;
   let balance = u.balance - state.bet;

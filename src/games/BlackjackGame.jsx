@@ -8,12 +8,6 @@ import GameHeader from "../components/GameHeader";
 import ResultBanner from "../components/ResultBanner";
 import "./BlackjackGame.css";
 
-/** "3:2" reads better on a felt than "1.5". Anything the server ever sets that
- *  isn't a half is shown as plain odds to one. */
-function paysText(pays) {
-  return pays === 1.5 ? "3:2" : pays === 1.2 ? "6:5" : `${pays}:1`;
-}
-
 export default function BlackjackGame({ user, onUpdate, onBack, onAtm, onError, config }) {
   const rules = config.blackjack;
   const [phase, setPhase] = useState("bet"); // bet | player | done
@@ -152,7 +146,7 @@ export default function BlackjackGame({ user, onUpdate, onBack, onAtm, onError, 
           {/* The felt is pitched away from the viewer; the controls below it
               stay flat and square to the pointer. */}
           <div className="lf-stage3d lf-blackjack__stage">
-            <div className="lf-stage3d__surface lf-rim lf-blackjack__rim">
+            <div className="lf-stage3d__surface lf-rim">
               <div className="lf-blackjack__table lf-felt">
                 <div className="lf-blackjack__deck" aria-hidden="true">
                   <span />
@@ -250,7 +244,7 @@ export default function BlackjackGame({ user, onUpdate, onBack, onAtm, onError, 
           )}
 
           <p className="lf-blackjack__rules">
-            Dealer stands on {rules.dealerStandsOn}, soft or hard · Blackjack pays {paysText(rules.blackjackPays)} ·
+            Dealer stands on {rules.dealerStandsOn}, soft or hard · Blackjack pays {rules.blackjackPaysText} ·
             {rules.doubleAllowed ? " Double on your first two cards" : " No doubling"} ·
             {rules.splitAllowed ? " Splits allowed" : " No splits"},
             {rules.insuranceOffered ? " insurance offered" : " no insurance"}

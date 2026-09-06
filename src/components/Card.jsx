@@ -86,6 +86,6 @@ export default function Card({ card, hidden = false, small = false, dealIndex = 
  *
  * Decorative: the row around it carries the label a screen reader needs.
  */
-export function CardSlot({ small = false }) {
-  return <div className={`lf-card lf-cardslot${small ? " lf-card--small" : ""}`} aria-hidden="true" />;
+export function CardSlot() {
+  return <div className="lf-card lf-cardslot" aria-hidden="true" />;
 }

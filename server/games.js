@@ -98,9 +98,26 @@ export function compareTB(a, b) {
 // House rules, all decided here and nowhere else: dealer stands on every 17
 // including a soft one, a natural pays 3:2, doubling is allowed on the first
 // two cards only, and there is no split and no insurance.
+/** A payout rate as a table prints it: 1.5 -> "3:2", 1.2 -> "6:5", 1 -> "1:1".
+ *  Via hundredths rather than the float itself, so 1.2 doesn't go round the
+ *  houses as 1.2000000000000002. */
+function oddsText(rate) {
+  let n = Math.round(rate * 100);
+  let d = 100;
+  const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+  const g = gcd(n, d);
+  return `${n / g}:${d / g}`;
+}
+
+const BLACKJACK_PAYS = 1.5;
+
 export const BLACKJACK_RULES = {
   dealerStandsOn: 17,
-  blackjackPays: 1.5,
+  blackjackPays: BLACKJACK_PAYS,
+  // The odds spelled out, derived from the rate rather than written beside it:
+  // the same rule the slot paytables follow, so what a player is told and what
+  // they are paid cannot drift apart. The felt and the win banner both use it.
+  blackjackPaysText: oddsText(BLACKJACK_PAYS),
   doubleAllowed: true,
   splitAllowed: false,
   insuranceOffered: false,

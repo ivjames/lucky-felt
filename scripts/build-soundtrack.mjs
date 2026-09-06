@@ -24,7 +24,7 @@
  * catalogue makes the credits right by construction.
  */
 import { spawn } from "node:child_process";
-import { mkdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -130,6 +130,11 @@ async function fetchCatalogue() {
   const resolved = TRACKS.map((filename) => {
     const piece = byFilename.get(filename);
     if (!piece) throw new Error(`${filename} is not in the Incompetech catalogue`);
+    /* Checked here rather than where they are used: both feed the manifest,
+     * which is written after the encode, and discovering a missing title three
+     * minutes into ffmpeg is a poor way to find out. */
+    if (!piece.title) throw new Error(`${filename} has no title in the catalogue`);
+    if (!piece.isrc) throw new Error(`${filename} has no ISRC in the catalogue`);
     return { filename, title: piece.title, isrc: piece.isrc };
   });
   return resolved;
@@ -145,7 +150,12 @@ async function fetchSources() {
     }
     const res = await fetch(sourceUrl(filename));
     if (!res.ok) throw new Error(`${filename}: ${res.status}`);
-    await writeFile(dest, Buffer.from(await res.arrayBuffer()));
+    /* Write beside the target and rename, so an interrupted run leaves no
+     * half-file. The skip above trusts existence, and ffmpeg will happily
+     * encode a truncated MP3 and exit 0 — a silent short track. */
+    const partial = `${dest}.part`;
+    await writeFile(partial, Buffer.from(await res.arrayBuffer()));
+    await rename(partial, dest);
     console.log(`  got   ${filename}`);
   }
 }
@@ -224,7 +234,18 @@ async function encodeOne(filename, title, outName) {
 }
 
 async function main() {
+  const STAGES = ["fetch", "encode", "manifest"];
   const flags = process.argv.slice(2);
+  /* Without this an unrecognised flag — `--help`, or `--manifests` for
+   * `--manifest` — leaves every stage unselected and the script exits 0
+   * having done nothing, looking exactly like a successful rebuild. */
+  const unknown = flags.filter((f) => !STAGES.includes(f.replace(/^--/, "")));
+  if (unknown.length) {
+    console.error(`unknown flag${unknown.length > 1 ? "s" : ""}: ${unknown.join(" ")}`);
+    console.error(`usage: node scripts/build-soundtrack.mjs [${STAGES.map((s) => `--${s}`).join("] [")}]`);
+    process.exitCode = 2;
+    return;
+  }
   const all = flags.length === 0;
   const want = (name) => all || flags.includes(`--${name}`);
 

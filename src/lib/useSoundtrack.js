@@ -63,6 +63,12 @@ export function useSoundtrack() {
   const [queue, setQueue] = useState(() => ({ order: shuffle(TRACKS.length), cursor: 0 }));
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef(null);
+  /* What is actually loaded into the element, so the effect below can compare
+   * identity rather than guessing from the URL. */
+  const loadedRef = useRef(null);
+  /* Consecutive tracks that failed to load. A whole pass of failures means the
+   * audio is not being served at all, and skipping on would spin. */
+  const failuresRef = useRef(0);
 
   const track = TRACKS[queue.order[queue.cursor]];
 
@@ -85,7 +91,11 @@ export function useSoundtrack() {
     audioRef.current = audio;
     return () => {
       audio.pause();
-      audio.src = "";
+      /* `src = ""` resolves against the document URL, so the browser would go
+       * and fetch the page itself and try to decode it as media. */
+      audio.removeAttribute("src");
+      audio.load();
+      loadedRef.current = null;
       audioRef.current = null;
     };
   }, []);
@@ -98,16 +108,34 @@ export function useSoundtrack() {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return undefined;
-    const onEnded = () => advance();
-    const onPlaying = () => setPlaying(true);
+    const onEnded = () => {
+      failuresRef.current = 0;
+      advance();
+    };
+    const onPlaying = () => {
+      failuresRef.current = 0;
+      setPlaying(true);
+    };
     const onPause = () => setPlaying(false);
+    /* A track that fails to load fires `error` and never `ended`, so without
+     * this the queue stops dead on the first bad file and the panel sits there
+     * reading "Paused". It is not hypothetical: the vhost falls back to
+     * `/index.html`, so a missing .m4a arrives as a 200 of text/html. Skip on,
+     * but give up once a full pass has failed rather than spinning. */
+    const onError = () => {
+      setPlaying(false);
+      failuresRef.current += 1;
+      if (failuresRef.current < TRACKS.length) advance();
+    };
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("playing", onPlaying);
     audio.addEventListener("pause", onPause);
+    audio.addEventListener("error", onError);
     return () => {
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("playing", onPlaying);
       audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("error", onError);
     };
   }, [advance]);
 
@@ -121,29 +149,40 @@ export function useSoundtrack() {
       audio.pause();
       return;
     }
-    const src = `${import.meta.env.BASE_URL}audio/${track.file}`;
-    if (!audio.src.endsWith(track.file)) {
-      audio.src = src;
+    /* Compare what is loaded, not the tail of the URL: `endsWith` would call
+     * a track named "Shuffle" already loaded while "George Street Shuffle"
+     * was the thing actually playing. */
+    if (loadedRef.current !== track.file) {
+      loadedRef.current = track.file;
+      audio.src = `${import.meta.env.BASE_URL}audio/${track.file}`;
       audio.load();
     }
     audio.play().catch(() => setPlaying(false));
   }, [prefs.enabled, track.file]);
 
-  /* Autoplay is blocked until the page has been interacted with. Rather than
-   * asking the player to press play twice, the next click or keypress
-   * anywhere retries it once. */
+  /* Autoplay is blocked until the page has been interacted with, so every
+   * gesture retries it. Deliberately not `{once: true}`: the first gesture is
+   * not guaranteed to satisfy the browser, and consuming the listener on a
+   * rejected attempt left no way to ever start the music while the button
+   * still claimed it was on. These come off when `playing` flips. */
   useEffect(() => {
     if (!prefs.enabled || playing) return undefined;
     const retry = () => audioRef.current?.play().catch(() => {});
-    window.addEventListener("pointerdown", retry, { once: true });
-    window.addEventListener("keydown", retry, { once: true });
+    window.addEventListener("pointerdown", retry);
+    window.addEventListener("keydown", retry);
     return () => {
       window.removeEventListener("pointerdown", retry);
       window.removeEventListener("keydown", retry);
     };
   }, [prefs.enabled, playing]);
 
-  const toggle = useCallback(() => setPrefs((p) => ({ ...p, enabled: !p.enabled })), []);
+  const toggle = useCallback(() => {
+    /* Turning the music back on is the player asking for another go, so the
+     * give-up counter starts over — otherwise a transient outage that burned
+     * through a full pass would leave the soundtrack dead until a reload. */
+    failuresRef.current = 0;
+    setPrefs((p) => ({ ...p, enabled: !p.enabled }));
+  }, []);
   const setVolume = useCallback((volume) => setPrefs((p) => ({ ...p, volume: clamp(volume) })), []);
 
   return {

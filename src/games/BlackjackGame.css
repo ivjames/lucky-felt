@@ -1,0 +1,193 @@
+/* Same shape as the Hold'em table: a felt pitched away from the viewer with
+   the controls flat below it. `width: 100%` matters for the same reason it
+   does there — this section is a grid item, and an item with auto inline
+   margins is sized to its contents rather than stretched, which would make the
+   whole table grow every time a hand gained a card. */
+.lf-blackjack {
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+.lf-blackjack__stage {
+  padding-bottom: 20px;
+}
+
+.lf-blackjack__table {
+  border-radius: var(--lf-radius);
+  padding: 10px 18px 16px;
+  transform-style: preserve-3d;
+}
+
+/* The shoe the cards come out of. Decorative, and the first thing to go on a
+   narrow screen where the hands need the width. */
+.lf-blackjack__deck {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 34px;
+  height: 48px;
+  transform: translateZ(4px);
+  pointer-events: none;
+}
+
+.lf-blackjack__deck span {
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  border: 1px solid var(--lf-gold-soft);
+  background:
+    repeating-linear-gradient(45deg, rgba(242, 209, 107, 0.5) 0 1px, transparent 1px 5px),
+    var(--lf-pocket-green);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.lf-blackjack__deck span:nth-child(2) {
+  transform: translate(-2px, -2px) rotate(-2.5deg);
+}
+
+.lf-blackjack__deck span:nth-child(3) {
+  transform: translate(-4px, -4px) rotate(-5deg);
+}
+
+.lf-blackjack__row {
+  position: relative;
+  padding: 12px 0;
+  transform-style: preserve-3d;
+}
+
+.lf-blackjack__row + .lf-blackjack__row {
+  border-top: 1px solid rgba(143, 209, 165, 0.13);
+}
+
+/* The name of the hand and its running total, on one line above the cards.
+   The total is here rather than beside the cards so it can't push them around
+   as it goes from one digit to two. */
+.lf-blackjack__rowhead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+  transform: translateZ(2px);
+}
+
+.lf-blackjack__rowtitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--lf-text-dim);
+}
+
+.lf-blackjack__total {
+  color: var(--lf-gold);
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A hand is always exactly one card tall and never wraps, so the felt is the
+   same height with no cards on it as with a hand that has been hit three
+   times. Unlike Hold'em there is no fixed number of places to draw — a hand
+   can be anything from two cards to (in theory) eleven — so the row reserves
+   the height and the cards tuck into it. */
+.lf-blackjack__hand {
+  --lf-card-gap: 7px;
+  min-height: calc(var(--lf-card-w) * 1.4 + 4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: var(--lf-card-gap);
+  transform-style: preserve-3d;
+}
+
+/* Cards sit ON the felt, not in it. */
+.lf-blackjack__hand .lf-card {
+  transform: translateZ(var(--lf-lift));
+}
+
+/* Six cards fit side by side at every width — the phone block below shrinks
+   them to keep that true. Past six, a card tucks under the one before rather
+   than the row growing; each card's index is at its top-left corner, so an
+   overlapped hand still reads. Hands that long are ~2% of deals, and longer
+   ones rarer still. */
+.lf-blackjack__hand .lf-card:nth-child(n + 7) {
+  margin-inline-start: calc(var(--lf-card-w) * -0.55);
+}
+
+/* Where each hand's cards are thrown from: the shoe is at the table's
+   top-right, so the dealer gets a short toss and the player a longer one. */
+.lf-blackjack__hand--dealer .lf-card {
+  --lf-deal-x: 150px;
+  --lf-deal-y: -34px;
+  --lf-deal-rot: 16deg;
+}
+
+.lf-blackjack__hand--player .lf-card {
+  --lf-deal-x: 200px;
+  --lf-deal-y: -150px;
+  --lf-deal-rot: 26deg;
+}
+
+.lf-blackjack__controls {
+  margin-top: 18px;
+}
+
+.lf-blackjack__stakeline {
+  margin-top: 12px;
+  color: var(--lf-text-dim);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lf-blackjack__stakeline b {
+  color: var(--lf-gold);
+}
+
+.lf-blackjack__replay {
+  margin-top: 16px;
+}
+
+/* The house rules, rendered from what the server actually enforces rather than
+   from a copy kept here — see GET /api/config. */
+.lf-blackjack__rules {
+  margin: 18px 0 0;
+  color: var(--lf-text-faint);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Below this the felt is narrower than six 60px cards side by side, so the
+   cards come down with it: the size is (felt width − the five gaps) / 6, and
+   the felt's width is itself a straight line in vw down here. Measured rather
+   than guessed — if the felt's padding changes, re-derive the slope. */
+@media (max-width: 560px) {
+  .lf-blackjack__stage {
+    padding-inline: 8px;
+    padding-bottom: 14px;
+  }
+
+  .lf-blackjack__table {
+    padding: 6px 12px 12px;
+  }
+
+  .lf-blackjack__deck {
+    display: none;
+  }
+
+  .lf-blackjack__hand {
+    --lf-card-w: clamp(23px, calc(16.66vw - 29.5px), 60px);
+    --lf-card-gap: 5px;
+  }
+
+  /* Shorter throws so a card never starts outside the viewport. */
+  .lf-blackjack__hand--dealer .lf-card {
+    --lf-deal-x: 90px;
+    --lf-deal-y: -26px;
+  }
+
+  .lf-blackjack__hand--player .lf-card {
+    --lf-deal-x: 110px;
+    --lf-deal-y: -104px;
+  }
+}

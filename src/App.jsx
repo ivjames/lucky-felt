@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import * as api from "./api";
 import AtmModal from "./components/AtmModal";
+import BlackjackGame from "./games/BlackjackGame";
 import MusicControl from "./components/MusicControl";
 import CrapsGame from "./games/CrapsGame";
 import PokerGame from "./games/PokerGame";
@@ -151,6 +152,7 @@ export default function App() {
       )}
       {inGame && !configReady && <div className="lf-app lf-app--loading">Loading game…</div>}
       {inGame && configReady && game === "poker" && <PokerGame {...gameProps} />}
+      {inGame && configReady && game === "blackjack" && <BlackjackGame {...gameProps} config={config} />}
       {inGame && configReady && game === "roulette" && <RouletteGame {...gameProps} config={config} />}
       {inGame && configReady && game === "craps" && <CrapsGame {...gameProps} />}
       {inGame && configReady && game === "sicbo" && <SicBoGame {...gameProps} config={config} />}

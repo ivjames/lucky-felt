@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import * as api from "../api";
-import Card from "../components/Card";
+import Card, { CardSlot } from "../components/Card";
 import BetInput from "../components/BetInput";
 import BrokeNotice from "../components/BrokeNotice";
 import ErrorNotice from "../components/ErrorNotice";
 import GameHeader from "../components/GameHeader";
 import ResultBanner from "../components/ResultBanner";
 import "./PokerGame.css";
+
+// The board never holds more than five cards, so it never needs more than five
+// places; drawing all of them keeps the felt one size for the whole hand.
+const BOARD_SEATS = [0, 1, 2, 3, 4];
 
 export default function PokerGame({ user, onUpdate, onBack, onAtm, onError }) {
   const [phase, setPhase] = useState("bet"); // bet | deal | flop | turn | river | showdown
@@ -177,37 +181,49 @@ export default function PokerGame({ user, onUpdate, onBack, onAtm, onError }) {
 
                 <div className="lf-poker__row">
                   <h2 className="lf-poker__rowtitle">Dealer</h2>
-                  <div className="lf-poker__cards lf-poker__cards--dealer">
-                    {phase === "bet" ? (
-                      <span className="lf-poker__placeholder">Waiting for the deal</span>
-                    ) : (
-                      // Same keys through the hand, so these two elements are
-                      // dealt face-down and later turn over rather than being
-                      // swapped out for different cards.
-                      [0, 1].map((i) => (
+                  <div
+                    className="lf-poker__cards lf-poker__cards--dealer"
+                    role="group"
+                    aria-label={phase === "bet" ? "Dealer: waiting for the deal" : "Dealer's hand"}
+                  >
+                    {/* Same keys through the hand, so these two elements are
+                        dealt face-down and later turn over rather than being
+                        swapped out for different cards. */}
+                    {[0, 1].map((i) =>
+                      phase === "bet" ? (
+                        <CardSlot key={i} />
+                      ) : (
                         <Card key={i} card={revealed ? dealer[i] : {}} hidden={!revealed} dealIndex={i} />
-                      ))
+                      ),
                     )}
                   </div>
                 </div>
 
                 <div className="lf-poker__row">
                   <h2 className="lf-poker__rowtitle">Board</h2>
-                  <div className="lf-poker__cards lf-poker__cards--board">
-                    {community.map((c, i) => (
-                      <Card key={i} card={c} dealIndex={i} flipIn />
-                    ))}
-                    {!community.length && <span className="lf-poker__placeholder">Awaiting the flop</span>}
+                  {/* All five board seats are drawn from the start — the flop,
+                      turn and river land in places that were already there. */}
+                  <div
+                    className="lf-poker__cards lf-poker__cards--board"
+                    role="group"
+                    aria-label={community.length ? "The board" : "The board: no cards yet"}
+                  >
+                    {BOARD_SEATS.map((i) =>
+                      community[i] ? <Card key={i} card={community[i]} dealIndex={i} flipIn /> : <CardSlot key={i} />,
+                    )}
                   </div>
                 </div>
 
                 <div className="lf-poker__row">
                   <h2 className="lf-poker__rowtitle">You</h2>
-                  <div className="lf-poker__cards lf-poker__cards--player">
-                    {player.map((c, i) => (
-                      <Card key={i} card={c} dealIndex={i + 2} />
-                    ))}
-                    {!player.length && <span className="lf-poker__placeholder">Waiting for the deal</span>}
+                  <div
+                    className="lf-poker__cards lf-poker__cards--player"
+                    role="group"
+                    aria-label={player.length ? "Your hand" : "Your hand: waiting for the deal"}
+                  >
+                    {[0, 1].map((i) =>
+                      player[i] ? <Card key={i} card={player[i]} dealIndex={i + 2} /> : <CardSlot key={i} />,
+                    )}
                   </div>
                 </div>
               </div>

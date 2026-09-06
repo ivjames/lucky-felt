@@ -13,6 +13,13 @@ import "./RouletteGame.css";
 
 const POCKET_STEP = 360 / WHEEL_ORDER.length;
 
+// How many past spins the felt has room for on one line. The stage panel is at
+// most 400px wide in the split layout, which is nine 30px pips and their gaps —
+// so nine is what is kept, and every one of the nine has a place drawn for it
+// from the first render rather than the row growing a line as they arrive.
+const HISTORY_LEN = 9;
+const HISTORY_SEATS = Array.from({ length: HISTORY_LEN }, (_, i) => i);
+
 /** Rotation that brings a pocket under the fixed pointer at the top, always
  *  turning forwards from where the wheel currently sits. */
 function rotationFor(n, from) {
@@ -82,7 +89,7 @@ export default function RouletteGame({ user, onUpdate, onBack, onAtm, onError, c
         delta: r.delta,
         detail: `Ball landed on ${r.landed} (${color})${wins.length ? " · hits: " + wins.join(", ") : ""}`,
       });
-      setHistory((h) => [{ n: r.landed, color }, ...h].slice(0, 14));
+      setHistory((h) => [{ n: r.landed, color }, ...h].slice(0, HISTORY_LEN));
       onUpdate({ ...user, balance: r.balance });
     } catch (e) {
       if (e.status === 401) {
@@ -122,18 +129,20 @@ export default function RouletteGame({ user, onUpdate, onBack, onAtm, onError, c
                     : "Place your bets and spin."}
               </div>
 
-              {history.length > 0 && (
-                <div className="lf-roulette__history">
-                  <h2 className="lf-section-title lf-roulette__history-title">Recent spins</h2>
-                  <ul className="lf-roulette__pips" aria-label="Recent results, newest first">
-                    {history.map((h, i) => (
-                      <li key={i} className={`lf-roulette__pip lf-roulette__pip--${h.color}`}>
-                        {h.n}
+              <div className="lf-roulette__history">
+                <h2 className="lf-section-title lf-roulette__history-title">Recent spins</h2>
+                <ul className="lf-roulette__pips" aria-label="Recent results, newest first">
+                  {HISTORY_SEATS.map((i) =>
+                    history[i] ? (
+                      <li key={i} className={`lf-roulette__pip lf-roulette__pip--${history[i].color}`}>
+                        {history[i].n}
                       </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+                    ) : (
+                      <li key={i} className="lf-roulette__pip lf-roulette__pip--empty" aria-hidden="true" />
+                    ),
+                  )}
+                </ul>
+              </div>
             </div>
           </div>
         </section>

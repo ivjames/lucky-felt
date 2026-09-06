@@ -12,7 +12,8 @@ import rateLimit from "express-rate-limit";
 import {
   spinSlots, spinRoulette, spinSicBo, crapsRoll,
   makeDeck, shuffle, bestOf7, compareTB, publicConfig,
-  SLOT_CONFIGS, ROULETTE_BETS, SIC_BO_BETS,
+  handTotal, isBlackjack, dealerDraw, settleBlackjack,
+  SLOT_CONFIGS, ROULETTE_BETS, SIC_BO_BETS, BLACKJACK_RULES,
 } from "./games.js";
 import { sendLoginCode, mailerConfigured } from "./mailer.js";
 
@@ -22,7 +23,7 @@ const STARTING_BALANCE = 1000;
 const ATM_AMOUNT = 500;
 const ATM_COOLDOWN_MS = 5 * 60 * 1000;
 const MIN_BET = 1;
-const MAX_BET = 500;          // per single-stake game (slots, craps, poker)
+const MAX_BET = 500;          // per single-stake game (slots, craps, poker, blackjack)
 const MAX_TOTAL_BET = 5000;   // total across a multi-bet round (roulette, sic bo)
 const CODE_TTL_MS = 10 * 60 * 1000;   // sign-in code validity window
 const MAX_CODE_ATTEMPTS = 5;          // wrong guesses before a code is burned
@@ -100,7 +101,7 @@ function cleanupExpired() {
 cleanupExpired();
 
 // Per-user in-progress hand state for the stateful games (craps point, poker
-// deck), persisted in SQLite (`game_state`) so a server restart doesn't drop a
+// and blackjack decks), persisted in SQLite (`game_state`) so a server restart doesn't drop a
 // hand whose stake was already debited. Reads/writes happen synchronously
 // (better-sqlite3) inside the same handler that mutates balance, with no
 // awaits in between, and balance + state changes that must land together are
@@ -466,6 +467,147 @@ api.post("/poker/fold", auth, (req, res) => {
   // Stake already deducted at deal; folding just forfeits it.
   clearGameState(u.email, "poker");
   res.json({ balance: u.balance, delta: -state.pot });
+});
+
+// ---- Blackjack (stateful; the hole card stays server-side until the hand ends)
+// Same shape as poker: the hand lives in `game_state`, so a reload or a server
+// restart mid-hand recovers it through GET /api/blackjack/state instead of
+// stranding a stake that was already debited. The dealer's second card is never
+// sent while the player can still act — the client draws a face-down card in
+// its place, and only the server knows what is under it.
+
+/** What the client may see while the hand is still live. */
+function blackjackView(state, balance) {
+  return {
+    player: state.player,
+    playerTotal: handTotal(state.player).total,
+    dealer: [state.dealer[0]], // upcard only
+    dealerTotal: handTotal([state.dealer[0]]).total,
+    dealerHidden: true,
+    bet: state.bet,
+    // A hand that is still live has never been doubled: doubling takes its one
+    // card and settles in the same request, so the stake here is always the
+    // original bet.
+    stake: state.bet,
+    // Doubling costs that bet a second time, so it needs the bankroll to cover
+    // it as well as being the player's first decision.
+    canDouble: BLACKJACK_RULES.doubleAllowed && state.player.length === 2 && balance >= state.bet,
+    phase: "player",
+    settled: false,
+  };
+}
+
+/** What the client sees once the hand is over: everything, hole card included. */
+function blackjackResult(player, dealer, stake, outcome, label, returned) {
+  return {
+    player,
+    playerTotal: handTotal(player).total,
+    dealer,
+    dealerTotal: handTotal(dealer).total,
+    dealerHidden: false,
+    stake,
+    outcome,
+    label,
+    delta: returned - stake,
+    phase: "done",
+    settled: true,
+  };
+}
+
+api.post("/blackjack/deal", betLimiter, auth, (req, res) => {
+  const u = req.user;
+  // As in poker: a live hand has already cost the player its stake, so a second
+  // deal must not overwrite it.
+  if (getGameState(u.email, "blackjack")) return res.status(409).json({ error: "Finish your hand in progress first.", active: true });
+  const { bet } = req.body || {};
+  const err = validateBet(bet, u.balance);
+  if (err) return res.status(400).json({ error: err });
+
+  const d = shuffle(makeDeck());
+  const state = { deck: d.slice(4), player: [d[0], d[2]], dealer: [d[1], d[3]], bet };
+  let balance = u.balance - bet;
+
+  // A natural on either side ends the hand where it stands — nobody draws, and
+  // the player's 21 pays 3:2 rather than even money.
+  const playerBJ = isBlackjack(state.player);
+  const dealerBJ = isBlackjack(state.dealer);
+  if (playerBJ || dealerBJ) {
+    let returned, outcome, label;
+    if (playerBJ && dealerBJ) { returned = bet; outcome = "push"; label = "Push — both blackjack"; }
+    else if (playerBJ) { returned = bet + bet * BLACKJACK_RULES.blackjackPays; outcome = "win"; label = `Blackjack! Pays ${BLACKJACK_RULES.blackjackPaysText}`; }
+    else { returned = 0; outcome = "lose"; label = "Dealer has blackjack"; }
+    balance += returned;
+    q.setBalance.run(balance, u.email);
+    return res.json({ balance, ...blackjackResult(state.player, state.dealer, bet, outcome, label, returned) });
+  }
+
+  db.transaction(() => {
+    q.setBalance.run(balance, u.email);
+    setGameState(u.email, "blackjack", state);
+  })();
+  res.json({ balance, ...blackjackView(state, balance) });
+});
+
+api.get("/blackjack/state", auth, (req, res) => {
+  const state = getGameState(req.user.email, "blackjack");
+  if (!state) return res.json({ active: false });
+  res.json({ active: true, balance: req.user.balance, ...blackjackView(state, req.user.balance) });
+});
+
+api.post("/blackjack/hit", auth, (req, res) => {
+  const u = req.user;
+  const state = getGameState(u.email, "blackjack");
+  if (!state) return res.status(409).json({ error: "No hand in progress." });
+  state.player.push(state.deck.shift());
+  const stake = state.bet;
+
+  // Busting ends the hand immediately: the dealer never draws against a hand
+  // that has already lost, though the hole card is turned over all the same.
+  if (handTotal(state.player).total > 21) {
+    const s = settleBlackjack(state.player, state.dealer, stake);
+    clearGameState(u.email, "blackjack");
+    return res.json({ balance: u.balance, ...blackjackResult(state.player, state.dealer, stake, s.outcome, s.label, s.returned) });
+  }
+  setGameState(u.email, "blackjack", state);
+  res.json({ balance: u.balance, ...blackjackView(state, u.balance) });
+});
+
+api.post("/blackjack/stand", auth, (req, res) => {
+  const u = req.user;
+  const state = getGameState(u.email, "blackjack");
+  if (!state) return res.status(409).json({ error: "No hand in progress." });
+  const stake = state.bet;
+  const dealer = dealerDraw(state.deck, state.dealer);
+  const s = settleBlackjack(state.player, dealer, stake);
+  const balance = u.balance + s.returned;
+  db.transaction(() => {
+    q.setBalance.run(balance, u.email);
+    clearGameState(u.email, "blackjack");
+  })();
+  res.json({ balance, ...blackjackResult(state.player, dealer, stake, s.outcome, s.label, s.returned) });
+});
+
+api.post("/blackjack/double", betLimiter, auth, (req, res) => {
+  const u = req.user;
+  const state = getGameState(u.email, "blackjack");
+  if (!state) return res.status(409).json({ error: "No hand in progress." });
+  if (state.player.length !== 2) return res.status(409).json({ error: "Doubling is only allowed on your first two cards." });
+  // The extra wager is the original bet again, which was already checked against
+  // the table limit at the deal; all that's left to check is the bankroll.
+  if (u.balance < state.bet) return res.status(400).json({ error: "Not enough balance to double." });
+
+  state.player.push(state.deck.shift());
+  const stake = state.bet * 2;
+  let balance = u.balance - state.bet;
+  // One card and the turn is over, so the hand resolves here either way.
+  const dealer = handTotal(state.player).total > 21 ? state.dealer : dealerDraw(state.deck, state.dealer);
+  const s = settleBlackjack(state.player, dealer, stake);
+  balance += s.returned;
+  db.transaction(() => {
+    q.setBalance.run(balance, u.email);
+    clearGameState(u.email, "blackjack");
+  })();
+  res.json({ balance, ...blackjackResult(state.player, dealer, stake, s.outcome, s.label, s.returned) });
 });
 
 app.use("/api", api);

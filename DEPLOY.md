@@ -40,9 +40,9 @@ It does, in order:
 1. Symlinks itself to `/usr/local/bin/casino`.
 2. Seeds `/var/www/casino-api/.env` **from the running pm2 process** if the file
    doesn't exist yet (the box's original state: env given on the first
-   `pm2 start` line), so nothing is lost when `deploy` restarts with
-   `--update-env`. With no process yet it copies `server/.env.example` and
-   tells you to fill it in. Creates the `CASINO_DB` directory.
+   `pm2 start` line), so nothing is lost once `deploy` stops inheriting it.
+   With no process yet it copies `server/.env.example` and tells you to fill
+   it in. Creates the `CASINO_DB` directory.
 3. Runs `casino deploy` **first**, so the API is already up on `127.0.0.1`
    before nginx is pointed at it (the pre-CLI process may be bound to `::1`
    only; pinning first would 502 the site for the length of the build).
@@ -71,10 +71,21 @@ What `deploy` does, in order:
    and removes any file deleted from `server/` since the last activated
    deploy.
 4. `npm ci --omit=dev` in the API dir.
-5. Sources the API `.env`, then `pm2 restart casino-api --update-env` (or
-   `pm2 start` if the process doesn't exist yet), `pm2 save`. Only now is the
-   commit stamped into `/var/www/casino-api/.deployed-commit`, so a deploy
-   that fails at `npm ci` leaves the stamp on the commit still running.
+5. Parses the API `.env` with shell builtins (never sources it, never puts a
+   value on an argv) into the `env` block of a temporary mode-0600 ecosystem
+   file, then `pm2 restart <that file> --only casino-api` (or `pm2 start` if
+   the process doesn't exist yet) through `pm2_clean`, and removes the file
+   again; then `pm2 save`. Only now is the commit stamped into
+   `/var/www/casino-api/.deployed-commit`, so a deploy that fails at `npm ci`
+   leaves the stamp on the commit still running.
+
+   **Not `--update-env`.** This step used to source `.env` into the calling
+   shell and run `pm2 restart casino-api --update-env`, which re-captured that
+   whole shell into the process and into `~/.pm2/dump.pm2` on every deploy —
+   giving anything the operator happened to have exported an indefinite
+   on-disk lifetime. `bin/casino` was changed to the ecosystem-file form and
+   the platform conventions now forbid `--update-env` outright; this page had
+   not caught up. Don't reintroduce it by hand.
 6. Probes `/api/health` locally and publicly, the public `/`, and which build
    that `/` is actually serving. The two API probes require the `{"ok":true}`
    body, not just a 200, because a vhost with no `/api/` location would answer
